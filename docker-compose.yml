@@ -1,0 +1,26 @@
+#file: noinspection SpellCheckingInspection
+services:
+  composer:
+    container_name: "${PROJECT_NAME}_composer"
+    environment:
+      COLUMNS: 80
+      PHP_FPM_GROUP: wodby
+      PHP_FPM_USER: wodby
+      PHP_XDEBUG: 1
+      PHP_XDEBUG_MODE: develop,debug,coverage
+      PHP_XDEBUG_DISCOVER_CLIENT_HOST: 1
+      PHP_XDEBUG_CLIENT_HOST: host.docker.internal
+      PHP_XDEBUG_START_WITH_REQUEST: 'trigger'
+      PHP_XDEBUG_TRIGGER_VALUE: 'enable'
+      PHP_DEFAULT_CHARSET: 'utf-8'
+      PHP_DATE_TIMEZONE: 'Europe/Brussels'
+      PHP_DISPLAY_ERRORS: 'On'
+      PHP_DISPLAY_STARTUP_ERRORS: 'On'
+      PHP_ERROR_REPORTING: 'E_ALL'
+      PHP_LOG_ERRORS: 'On'
+      PHP_LOG_ERRORS_MAX_LEN: '0'
+    env_file:
+      - .env
+    image: wodby/php:8.1-dev-macos-4.33.4
+    volumes:
+      - "./:/var/www/html"

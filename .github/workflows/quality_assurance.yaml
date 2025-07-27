@@ -1,0 +1,35 @@
+#file: noinspection SpellCheckingInspection
+name: Quality Assurance
+on:
+    push: ~
+    pull_request: ~
+
+jobs:
+    quality_assurance:
+        name: Quality Assurance on ${{ matrix.php }}
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                php: [ '8.1', '8.2', '8.3']
+        steps:
+            -   uses: actions/checkout@v3
+                with:
+                    # Solves the not "You are not currently on a branch" problem, see https://github.com/actions/checkout/issues/124#issuecomment-586664611
+                    ref: ${{ github.event.pull_request.head.ref }}
+                    # Must be used to trigger workflow after push
+                    token: ${{ secrets.GITHUB_TOKEN }}
+            -   uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php }}
+                    coverage: xdebug
+                    tools: composer:v2
+            -   run: composer install --no-progress
+            -   run: vendor/bin/ecs check --config ecs.php --fix
+            -   uses: stefanzweifel/git-auto-commit-action@v4
+                with:
+                    commit_message: 'Format Code'
+                    commit_author: 'GitHub Action <actions@github.com>'
+                    commit_user_email: 'action@github.com'
+            -   run: vendor/bin/ecs check --config ecs.php
+            -   run: vendor/bin/phpunit --coverage-text
+            -   run: vendor/bin/phpstan --memory-limit=-1 --debug --xdebug

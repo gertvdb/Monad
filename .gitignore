@@ -1,0 +1,7 @@
+.env
+.phpunit.cache
+vendor
+.ecs_cache
+.phpunit.result.cache
+build
+.idea
