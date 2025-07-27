@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad;
+namespace Gertvdb\Monad;
 
-use GertVdb\Monad\Monads\Either\Failure;
-use GertVdb\Monad\Monads\Either\Success;
-use GertVdb\Monad\Trace\Trace;
+use Gertvdb\Monad\Monads\Either\Failure;
+use Gertvdb\Monad\Monads\Either\Success;
+use Gertvdb\Monad\Trace\Trace;
 use Throwable;
 
 

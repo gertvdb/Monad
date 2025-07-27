@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad;
+namespace Gertvdb\Monad;
 
 use InvalidArgumentException;
 use RuntimeException;
-use GertVdb\Monad\Monads\Either\Failure;
-use GertVdb\Monad\Monads\Either\Success;
+use Gertvdb\Monad\Monads\Either\Failure;
+use Gertvdb\Monad\Monads\Either\Success;
 use Throwable;
 
 /**

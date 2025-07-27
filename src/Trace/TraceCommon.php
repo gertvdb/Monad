@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad\Trace;
+namespace Gertvdb\Monad\Trace;
 
 final class TraceCommon implements Trace
 {

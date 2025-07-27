@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad\Context;
+namespace Gertvdb\Monad\Context;
 
 interface Context
 {

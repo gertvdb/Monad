@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad;
+namespace Gertvdb\Monad;
 
 /**
  * Carrier monad, an interface for a monad that will replicate

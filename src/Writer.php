@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad;
+namespace Gertvdb\Monad;
 
-use GertVdb\Monad\Trace\Trace;
-use GertVdb\Monad\Trace\Traces;
+use Gertvdb\Monad\Trace\Trace;
+use Gertvdb\Monad\Trace\Traces;
 
 /**
  * All-in Either for the most common cases.

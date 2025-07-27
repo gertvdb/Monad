@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad\Monads\Optional;
+namespace Gertvdb\Monad\Monads\Optional;
 
-use GertVdb\Monad\Optional;
+use Gertvdb\Monad\Optional;
 use ValueError;
 
 /**

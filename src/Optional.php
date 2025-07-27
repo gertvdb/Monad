@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad;
+namespace Gertvdb\Monad;
 
-use GertVdb\Monad\Monads\Optional\None;
-use GertVdb\Monad\Monads\Optional\Some;
+use Gertvdb\Monad\Monads\Optional\None;
+use Gertvdb\Monad\Monads\Optional\Some;
 
 /**
  * Maybe Monad (Optional)

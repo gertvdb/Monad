@@ -1,33 +1,21 @@
 [project-name]: Monad
-[project-url]: https://github.com/Tactics/Monad
-[project-build]: https://github.com/Tactics/Monad/actions/workflows/quality_assurance.yaml/badge.svg
-[project-tests]: https://github.com/Tactics/Monad/blob/main/badge-coverage.svg
+[project-url]: https://github.com/GertVdb/Monad
+[project-build]: https://github.com/GertVdb/Monad/actions/workflows/quality_assurance.yaml/badge.svg
+[project-tests]: https://github.com/GertVdb/Monad/blob/main/badge-coverage.svg
 
-# Foo
+# Monad
 ![Build][project-build]
 ![Tests][project-tests]
 [![Software License][ico-license]](LICENSE.md)
 
-Provide a detailed description of the project.
+Utilities to help ease use of monads in Php.
 
 ## Install
-
-Make sure to add this to the *"repositories"* key in your ```composer.json```
-since this is a private package hosted on our own Composer repository generator Satis.
-
-```bash
-"repositories": [
-    {
-        "type": "composer",
-        "url": "https://satis.tactics.be"
-    }
-]
-````
 
 Then run the following command
 
 ``` bash
-$ composer require tactics/monad
+$ composer require gertvdb/monad
 ```
 
 ## Dependencies
@@ -53,17 +41,13 @@ Please see [CONTRIBUTING](CONTRIBUTING.md) and [CODE_OF_CONDUCT](CODE_OF_CONDUCT
 
 ## Security
 
-If you discover any security related issues, please email info at tactics dot be instead of using the issue tracker.
-
-## Credits
-
-Development of this library is sponsored by [Tactics]([link-owner]).
+If you discover any security related issues, please email gertvandenbuijs at hotmail dot com instead of using the issue tracker.
 
 ## License
 
 The Lesser GPL version 3 or later. Please see [License File](LICENSE.md) for more information.
 
-[link-owner]: https://github.com/Tactics
+[link-owner]: https://github.com/Gertvdb
 [link-contributors]: ../../contributors
 [ico-license]: https://img.shields.io/badge/License-AGPLv3-green.svg?style=flat-square
 

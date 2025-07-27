@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad\Context;
+namespace Gertvdb\Monad\Context;
 
 use Generator;
-use GertVdb\Monad\Monads\Optional\None;
-use GertVdb\Monad\Monads\Optional\Some;
-use GertVdb\Monad\Optional;
+use Gertvdb\Monad\Monads\Optional\None;
+use Gertvdb\Monad\Monads\Optional\Some;
+use Gertvdb\Monad\Optional;
 
 final class ContextCollection implements Contexts
 {

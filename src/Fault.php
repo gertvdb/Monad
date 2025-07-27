@@ -1,6 +1,6 @@
 <?php
 
-namespace GertVdb\Monad;
+namespace Gertvdb\Monad;
 
 use Throwable;
 

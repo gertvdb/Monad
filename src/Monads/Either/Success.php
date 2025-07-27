@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad\Monads\Either;
+namespace Gertvdb\Monad\Monads\Either;
 
-use GertVdb\Monad\Context\Context;
-use GertVdb\Monad\Context\ContextCollection;
-use GertVdb\Monad\Context\Contexts;
-use GertVdb\Monad\Either;
-use GertVdb\Monad\Fault;
-use GertVdb\Monad\Optional;
-use GertVdb\Monad\Trace\Trace;
-use GertVdb\Monad\Trace\TraceCollection;
-use GertVdb\Monad\Trace\Traces;
+use Gertvdb\Monad\Context\Context;
+use Gertvdb\Monad\Context\ContextCollection;
+use Gertvdb\Monad\Context\Contexts;
+use Gertvdb\Monad\Either;
+use Gertvdb\Monad\Fault;
+use Gertvdb\Monad\Optional;
+use Gertvdb\Monad\Trace\Trace;
+use Gertvdb\Monad\Trace\TraceCollection;
+use Gertvdb\Monad\Trace\Traces;
 use Throwable;
 
 /**

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace GertVdb\Monad\Context;
+namespace Gertvdb\Monad\Context;
 
 use IteratorAggregate;
-use GertVdb\Monad\Optional;
+use Gertvdb\Monad\Optional;
 
 interface Contexts extends IteratorAggregate
 {
