@@ -1,7 +1,7 @@
 [project-name]: Monad
-[project-url]: https://github.com/GertVdb/Monad
-[project-build]: https://github.com/GertVdb/Monad/actions/workflows/quality_assurance.yaml/badge.svg
-[project-tests]: https://github.com/GertVdb/Monad/blob/main/badge-coverage.svg
+[project-url]: https://github.com/gertvdb/Monad
+[project-build]: https://github.com/gertvdb/Monad/actions/workflows/quality_assurance.yaml/badge.svg
+[project-tests]: https://github.com/gertvdb/Monad/blob/main/badge-coverage.svg
 
 # Monad
 ![Build][project-build]
@@ -47,7 +47,7 @@ If you discover any security related issues, please email gertvandenbuijs at hot
 
 The Lesser GPL version 3 or later. Please see [License File](LICENSE.md) for more information.
 
-[link-owner]: https://github.com/Gertvdb
+[link-owner]: https://github.com/gertvdb
 [link-contributors]: ../../contributors
 [ico-license]: https://img.shields.io/badge/License-AGPLv3-green.svg?style=flat-square
 

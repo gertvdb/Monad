@@ -27,7 +27,7 @@
     },
     "autoload": {
         "psr-4": {
-            "GertVdb\\Monad\\": "src"
+            "Gertvdb\\Monad\\": "src"
         },
         "files": [
             "src/helpers.php"
@@ -35,8 +35,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "GertVdb\\Monad\\": "tests",
-            "GertVdb\\Monad\\Benchmarks\\": "benchmarks"
+            "Gertvdb\\Monad\\": "tests",
+            "Gertvdb\\Monad\\Benchmarks\\": "benchmarks"
         }
     },
     "scripts": {
