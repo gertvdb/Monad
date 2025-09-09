@@ -9,7 +9,6 @@ use ValueError;
 
 final class None implements Optional
 {
-
     public static function of(): self
     {
         return new self();

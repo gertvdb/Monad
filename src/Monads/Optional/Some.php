@@ -8,7 +8,6 @@ use Gertvdb\Monad\Optional;
 
 final class Some implements Optional
 {
-
     private function __construct(
         protected readonly mixed $value
     ) {
