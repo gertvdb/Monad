@@ -79,6 +79,7 @@ final class Success implements Either
     }
 
     /**
+     * @template T
      * @template U
      * @param callable(T): Success<U>|Failure $fn
      * @return Success<U>|Failure

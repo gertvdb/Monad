@@ -15,6 +15,7 @@ final class None implements Optional
 {
     /**
      * @template U
+     * @param class-string<U>|null $type  Used only to help inference
      * @return None<U>
      */
     public static function of(): self
