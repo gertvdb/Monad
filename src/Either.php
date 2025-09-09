@@ -9,7 +9,6 @@ use Gertvdb\Monad\Monads\Either\Success;
 use Gertvdb\Monad\Trace\Trace;
 use Throwable;
 
-
 /**
  * @template T
  * @extends Writer<Either<T>>

@@ -21,7 +21,6 @@ use Throwable;
  */
 final class Success implements Either
 {
-
     /**
      * @param T $value
      */

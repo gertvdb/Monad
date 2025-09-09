@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Gertvdb\Monad\Context;
 
-use IteratorAggregate;
 use Gertvdb\Monad\Optional;
+use IteratorAggregate;
 
 interface Contexts extends IteratorAggregate
 {
