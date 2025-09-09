@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-use Tactics\Monad\Context\Context;
-use Tactics\Monad\Context\ContextCollection;
-use Tactics\Monad\Either;
-use Tactics\Monad\Monads\Either\Failure;
-use Tactics\Monad\Trace\TraceCommon;
+use Gertvdb\Monad\Context\Context;
+use Gertvdb\Monad\Context\ContextCollection;
+use Gertvdb\Monad\Context\ContextType;
+use Gertvdb\Monad\Either;
+use Gertvdb\Monad\Monads\Either\Failure;
+use Gertvdb\Monad\Trace\TraceCommon;
 
 /**
  * Functional wrapper around Json serializer.
@@ -44,4 +45,9 @@ final class Example
 final class MyExtraCustomErrorContext implements Context
 {
     public function __construct(){}
+
+    public function type(): ContextType
+    {
+        return ContextType::Persistent;
+    }
 }

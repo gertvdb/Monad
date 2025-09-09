@@ -15,15 +15,9 @@ use Gertvdb\Monad\Trace\TraceCollection;
 use Gertvdb\Monad\Trace\Traces;
 use Throwable;
 
-/**
- * @template T
- * @implements Either<T>
- */
 final class Success implements Either
 {
-    /**
-     * @param T $value
-     */
+
     private function __construct(
         protected readonly mixed $value,
         protected Traces $traces,
@@ -31,14 +25,7 @@ final class Success implements Either
     ) {
     }
 
-    /**
-     * @template U
-     * @param U $value
-     * @param Traces|null $traces
-     * @param Contexts|null $contexts
-     * @return Success<U>
-     */
-    public static function of(mixed $value, ?Traces $traces = null, ?Contexts $contexts = null): Success
+    public static function of(mixed $value, ?Traces $traces = null, ?Contexts $contexts = null): self
     {
         return new self(
             value: $value,
@@ -47,12 +34,7 @@ final class Success implements Either
         );
     }
 
-    /**
-     * @template U
-     * @param U $value
-     * @return Success<U>
-     */
-    public function lift($value): Success
+    public function lift(mixed $value): self
     {
         return new self(
             value: $value,
@@ -78,22 +60,11 @@ final class Success implements Either
         );
     }
 
-    /**
-     * @template T
-     * @template U
-     * @param callable(T): Success<U>|Failure $fn
-     * @return Success<U>|Failure
-     */
     public function bind(callable $fn): Success|Failure
     {
         return $fn($this->value);
     }
 
-    /**
-     * @template U
-     * @param callable(T): U $fn
-     * @return Success<U>
-     */
     public function map(callable $fn): Success
     {
         return self::of(
@@ -103,9 +74,6 @@ final class Success implements Either
         );
     }
 
-    /**
-     * @return T
-     */
     public function unwrap(): mixed
     {
         return $this->value;

@@ -19,10 +19,6 @@ use Gertvdb\Monad\Trace\Traces;
 use Throwable;
 use ValueError;
 
-/**
- * @template T
- * @implements Either<T>
- */
 final class Failure extends FailureError implements Either
 {
     private function __construct(
