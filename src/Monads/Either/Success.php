@@ -17,7 +17,6 @@ use Throwable;
 
 final class Success implements Either
 {
-
     private function __construct(
         protected readonly mixed $value,
         protected Traces $traces,
