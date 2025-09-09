@@ -145,5 +145,4 @@ final class Failure extends FailureError implements Either
     ): Failure {
         return $this;
     }
-
 }
