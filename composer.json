@@ -11,7 +11,8 @@
     "authors": [
         {
             "name": "Gert van den Buijs",
-            "email": "gertvandenbuijs@hotmail.com"
+            "email": "gertvandenbuijs@hotmail.com",
+            "role": "Developer"
         }
     ],
     "require": {
