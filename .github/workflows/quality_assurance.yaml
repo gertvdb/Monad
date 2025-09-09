@@ -30,6 +30,8 @@ jobs:
                     commit_message: 'Format Code'
                     commit_author: 'GitHub Action <actions@github.com>'
                     commit_user_email: 'action@github.com'
+                    skip_dirty_check: false
+                    push_options: '--force-with-lease'
             -   run: vendor/bin/ecs check --config ecs.php
             -   run: vendor/bin/phpunit --coverage-text
             -   run: vendor/bin/phpstan --memory-limit=-1 --debug --xdebug
