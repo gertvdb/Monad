@@ -28,6 +28,10 @@ final class Some implements Optional
         return $this->value;
     }
 
+    public function unwrapOr(mixed $default): mixed {
+        return $this->value;
+    }
+
     public function map(callable $fn): Some
     {
         return self::of($fn($this->value));

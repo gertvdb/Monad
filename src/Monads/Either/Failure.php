@@ -66,7 +66,7 @@ final class Failure extends FailureError implements Either
 
     public function unwrap(): mixed
     {
-        throw new ValueError('Value of Failure can not be unwrapped');
+        throw new ValueError('Value of Failure can not be unwrapped', 0, $this->exception);
     }
 
     public function unwrapError(): Throwable

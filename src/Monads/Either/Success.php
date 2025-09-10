@@ -7,13 +7,16 @@ namespace Gertvdb\Monad\Monads\Either;
 use Gertvdb\Monad\Context\Context;
 use Gertvdb\Monad\Context\ContextCollection;
 use Gertvdb\Monad\Context\Contexts;
+use Gertvdb\Monad\Context\ErrorHandlingContext;
 use Gertvdb\Monad\Either;
 use Gertvdb\Monad\Fault;
 use Gertvdb\Monad\Optional;
 use Gertvdb\Monad\Trace\Trace;
 use Gertvdb\Monad\Trace\TraceCollection;
 use Gertvdb\Monad\Trace\Traces;
+use LogicException;
 use Throwable;
+use TypeError;
 
 final class Success implements Either
 {
@@ -61,16 +64,47 @@ final class Success implements Either
 
     public function bind(callable $fn): Success|Failure
     {
-        return $fn($this->value);
+        try {
+            $result = $fn($this->value);
+
+            if ($result instanceof self || $result instanceof Failure) {
+                return $result;
+            }
+
+            return $this->fail(
+                Fault::dueTo(sprintf(
+                    'Bind must return Success|Failure, got %s',
+                    get_debug_type($result)
+                ))
+            );
+        } catch (TypeError $e) {
+            return $this->fail(
+                Fault::dueTo(
+                    sprintf('Type mismatch in bind: %s', $e->getMessage()),
+                    $e->getCode(),
+                    $e
+                )
+            );
+        } catch (Throwable $e) {
+            return $this->fail(
+                Fault::dueTo($e->getMessage(), $e->getCode(), $e)
+            );
+        }
     }
 
-    public function map(callable $fn): Success
+    public function map(callable $fn): Success|Failure
     {
-        return self::of(
-            value: $fn($this->value),
-            traces: $this->traces,
-            contexts: $this->contexts
-        );
+        try {
+            return self::of(
+                $fn($this->value),
+                traces: $this->traces,
+                contexts: $this->contexts
+            );
+        } catch (Throwable $e) {
+            return $this->fail(
+                Fault::dueTo($e->getMessage(), $e->getCode(), $e)
+            );
+        }
     }
 
     public function unwrap(): mixed
@@ -80,7 +114,7 @@ final class Success implements Either
 
     public function unwrapError(): Throwable
     {
-        throw new \LogicException('Cannot unwrap error from Success');
+        throw new LogicException('Cannot unwrap error from Success');
     }
 
     public function withTrace(Trace $trace): Success
