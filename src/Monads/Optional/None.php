@@ -30,7 +30,8 @@ final class None implements Optional
         return $this;
     }
 
-    public function unwrapOr(mixed $default): mixed {
+    public function unwrapOr(mixed $default): mixed
+    {
         return $default;
     }
 }

@@ -28,7 +28,8 @@ final class Some implements Optional
         return $this->value;
     }
 
-    public function unwrapOr(mixed $default): mixed {
+    public function unwrapOr(mixed $default): mixed
+    {
         return $this->value;
     }
 
