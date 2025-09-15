@@ -127,8 +127,8 @@ final class Success implements Either
 
         foreach ($requiredContexts as $ctxClass) {
             $opt = $this->contexts->get($ctxClass);
-            if ($opt->isEmpty()) {
-                return $this->fail(\Tactics\Monad\Fault::fromMessage("Missing required context: {$ctxClass}"));
+            if ($opt instanceof None) {
+                return $this->fail(Fault::dueTo("Missing required context: {$ctxClass}"));
             }
             $contexts[$ctxClass] = $opt->unwrap();
         }
