@@ -92,7 +92,8 @@ final class Success implements Either
         }
     }
 
-    public function bindWithContext(array $requiredContexts, callable $fn): Success|Failure {
+    public function bindWithContext(array $requiredContexts, callable $fn): Success|Failure
+    {
         $contexts = [];
 
         foreach ($requiredContexts as $ctxClass) {
@@ -133,7 +134,7 @@ final class Success implements Either
             $contexts[$ctxClass] = $opt->unwrap();
         }
 
-        return $this->map(fn($value) => $fn($value, $contexts));
+        return $this->map(fn ($value) => $fn($value, $contexts));
     }
 
 

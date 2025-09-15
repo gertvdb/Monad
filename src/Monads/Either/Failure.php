@@ -64,7 +64,8 @@ final class Failure extends FailureError implements Either
         return $this;
     }
 
-    public function bindWithContext(array $requiredContexts, callable $fn): Failure {
+    public function bindWithContext(array $requiredContexts, callable $fn): Failure
+    {
         return $this;
     }
 
@@ -83,7 +84,8 @@ final class Failure extends FailureError implements Either
         return $this;
     }
 
-    public function mapWithContext(array $requiredContexts, callable $fn): Failure {
+    public function mapWithContext(array $requiredContexts, callable $fn): Failure
+    {
         return $this;
     }
 
