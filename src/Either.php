@@ -25,6 +25,13 @@ interface Either extends Writer, Reader, Carrier
     public function bind(callable $fn): Success|Failure;
 
     /**
+     * @param array $requiredContexts
+     * @param callable $fn
+     * @return Success|Failure
+     */
+    public function bindWithContext(array $requiredContexts, callable $fn): Success|Failure;
+
+    /**
      * @return T
      */
     public function unwrap(): mixed;
@@ -40,6 +47,8 @@ interface Either extends Writer, Reader, Carrier
      * @return Success<U>|Failure
      */
     public function map(callable $fn): Success|Failure;
+
+    public function mapWithContext(array $requiredContexts, callable $fn): Success|Failure;
 
     /**
      * @template U

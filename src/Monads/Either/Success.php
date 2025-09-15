@@ -7,9 +7,9 @@ namespace Gertvdb\Monad\Monads\Either;
 use Gertvdb\Monad\Context\Context;
 use Gertvdb\Monad\Context\ContextCollection;
 use Gertvdb\Monad\Context\Contexts;
-use Gertvdb\Monad\Context\ErrorHandlingContext;
 use Gertvdb\Monad\Either;
 use Gertvdb\Monad\Fault;
+use Gertvdb\Monad\Monads\Optional\None;
 use Gertvdb\Monad\Optional;
 use Gertvdb\Monad\Trace\Trace;
 use Gertvdb\Monad\Trace\TraceCollection;
@@ -92,6 +92,20 @@ final class Success implements Either
         }
     }
 
+    public function bindWithContext(array $requiredContexts, callable $fn): Success|Failure {
+        $contexts = [];
+
+        foreach ($requiredContexts as $ctxClass) {
+            $opt = $this->contexts->get($ctxClass);
+            if ($opt instanceof None) {
+                return $this->fail(Fault::dueTo("Missing required context: {$ctxClass}"));
+            }
+            $contexts[$ctxClass] = $opt->unwrap();
+        }
+
+        return $fn($this->value, $contexts);
+    }
+
     public function map(callable $fn): Success|Failure
     {
         try {
@@ -106,6 +120,22 @@ final class Success implements Either
             );
         }
     }
+
+    public function mapWithContext(array $requiredContexts, callable $fn): Success|Failure
+    {
+        $contexts = [];
+
+        foreach ($requiredContexts as $ctxClass) {
+            $opt = $this->contexts->get($ctxClass);
+            if ($opt->isEmpty()) {
+                return $this->fail(\Tactics\Monad\Fault::fromMessage("Missing required context: {$ctxClass}"));
+            }
+            $contexts[$ctxClass] = $opt->unwrap();
+        }
+
+        return $this->map(fn($value) => $fn($value, $contexts));
+    }
+
 
     public function unwrap(): mixed
     {

@@ -64,6 +64,10 @@ final class Failure extends FailureError implements Either
         return $this;
     }
 
+    public function bindWithContext(array $requiredContexts, callable $fn): Failure {
+        return $this;
+    }
+
     public function unwrap(): mixed
     {
         throw new ValueError('Value of Failure can not be unwrapped', 0, $this->exception);
@@ -76,6 +80,10 @@ final class Failure extends FailureError implements Either
 
     public function map(callable $fn): Failure
     {
+        return $this;
+    }
+
+    public function mapWithContext(array $requiredContexts, callable $fn): Failure {
         return $this;
     }
 
