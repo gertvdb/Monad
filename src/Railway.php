@@ -9,7 +9,9 @@ final readonly class Railway
     /**
      * @param array<string, callable(Either): Either> $handlers
      */
-    public function __construct(private array $handlers){}
+    public function __construct(private array $handlers)
+    {
+    }
 
     public function __invoke(Either $result, string $context, callable $extractKey): Either
     {
