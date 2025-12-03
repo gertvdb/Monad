@@ -21,6 +21,6 @@ services:
       PHP_LOG_ERRORS_MAX_LEN: '0'
     env_file:
       - .env
-    image: wodby/php:8.1-dev-macos-4.33.4
+    image: wodby/php:8.3
     volumes:
       - "./:/var/www/html"
