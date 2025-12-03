@@ -10,9 +10,8 @@ use LogicException;
 
 final class Traces implements WriterChannel
 {
-
     private function __construct(
-       private array $traces = []
+        private array $traces = []
     ) {
     }
 
@@ -33,7 +32,7 @@ final class Traces implements WriterChannel
 
     public function count(): int
     {
-       return count($this->traces);
+        return count($this->traces);
     }
 
     public function append(mixed $value): self
@@ -59,5 +58,4 @@ final class Traces implements WriterChannel
 
         return new self([...$this->traces, ...$other->traces]);
     }
-
 }

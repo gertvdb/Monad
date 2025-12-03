@@ -51,5 +51,4 @@ interface IResult
     public function writer(): Writer;
     public function writeTo(string $channel, mixed $value): self;
     public function writerOutput(string $channel): array;
-
 }

@@ -58,5 +58,4 @@ final class Writer implements IWriter
 
         return new self($newData);
     }
-
 }

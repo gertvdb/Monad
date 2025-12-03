@@ -8,18 +8,17 @@ use LogicException;
 
 final class Env implements IEnv
 {
-
     /** @var array<class-string, object> */
     private array $items;
 
     public function __construct(
         array $items = [],
-    )
-    {
+    ) {
         $this->items = $items;
     }
 
-    public static function empty(): self {
+    public static function empty(): self
+    {
         return new self([]);
     }
 

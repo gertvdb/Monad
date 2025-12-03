@@ -14,7 +14,8 @@ final class Option
     private function __construct(
         private readonly bool $hasValue,
         private readonly mixed $value = null
-    ) {}
+    ) {
+    }
 
     // ------------------------------------------------------------
     //  Constructors

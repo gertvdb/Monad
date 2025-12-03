@@ -12,7 +12,6 @@ use TypeError;
 
 final readonly class Result implements IResult
 {
-
     /**
      * @param bool $ok
      * @param mixed $valueOrError
@@ -24,7 +23,8 @@ final readonly class Result implements IResult
         private mixed   $valueOrError,
         private Env     $env,
         private Writer  $writer,
-    ) {}
+    ) {
+    }
 
     // ------------------------------------------------------------
     //  Constructors
@@ -61,8 +61,14 @@ final readonly class Result implements IResult
     //  Basic state
     // ------------------------------------------------------------
 
-    public function isOk(): bool { return $this->ok; }
-    public function isErr(): bool { return !$this->ok; }
+    public function isOk(): bool
+    {
+        return $this->ok;
+    }
+    public function isErr(): bool
+    {
+        return !$this->ok;
+    }
 
     // ------------------------------------------------------------
     //  Transform / Failing
@@ -128,7 +134,6 @@ final readonly class Result implements IResult
                     $e->getMessage()
                 ))
             );
-
         } catch (Throwable $e) {
             return $this->fail($e);
         }
@@ -164,7 +169,6 @@ final readonly class Result implements IResult
                 'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapEnv() instead.',
                 get_debug_type($result)
             )));
-
         } catch (TypeError $e) {
             return $this->fail(
                 new LogicException(sprintf(
@@ -172,7 +176,6 @@ final readonly class Result implements IResult
                     $e->getMessage()
                 ))
             );
-
         } catch (Throwable $e) {
             return $this->fail($e);
         }
@@ -195,7 +198,7 @@ final readonly class Result implements IResult
             if ($result instanceof self) {
                 return $this->fail(new LogicException(
                     'map() must return a plain value (T -> U). It cannot return a Result. '
-                    .'If your function returns a Result, use bind() instead.'
+                    . 'If your function returns a Result, use bind() instead.'
                 ));
             }
 
@@ -242,12 +245,11 @@ final readonly class Result implements IResult
             if ($result instanceof self) {
                 return $this->fail(new LogicException(
                     'mapWithEnv() must return a plain value (T, env -> U). It cannot return a Result. '
-                    .'If your function returns a Result, use bindWithEnv() instead.'
+                    . 'If your function returns a Result, use bindWithEnv() instead.'
                 ));
             }
 
             return $this->lift($result);
-
         } catch (TypeError $e) {
             return $this->fail(
                 new LogicException(sprintf(
@@ -255,7 +257,6 @@ final readonly class Result implements IResult
                     $e->getMessage()
                 ))
             );
-
         } catch (Throwable $e) {
             return $this->fail($e);
         }
@@ -346,14 +347,16 @@ final readonly class Result implements IResult
     /**
      * @return mixed|null The plain value or null.
      */
-    public function value(): mixed {
+    public function value(): mixed
+    {
         return $this->isOk() ? $this->valueOrError : null;
     }
 
     /**
      * @return Throwable|null The Throwable error or null.
      */
-    public function error(): ?Throwable {
+    public function error(): ?Throwable
+    {
         return !$this->isOk() ? $this->valueOrError : null;
     }
 
@@ -408,5 +411,4 @@ final readonly class Result implements IResult
     {
         return $this->writer->get($channel);
     }
-
 }
