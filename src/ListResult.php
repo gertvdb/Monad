@@ -15,7 +15,6 @@ use TypeError;
 
 final class ListResult implements IResult, IteratorAggregate, Countable
 {
-
     /** @var Result[] */
     private array $items;
 
@@ -24,8 +23,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         array                 $items,
         private Env           $env,
         private Writer        $writer,
-    )
-    {
+    ) {
         $this->items = array_values($items);
     }
 
@@ -41,8 +39,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         array   $values,
         ?Env    $env = null,
         ?Writer $writer = null
-    ): self
-    {
+    ): self {
         $env = $env ?? Env::empty();
         $writer = $writer ?? Writer::empty();
 
@@ -75,7 +72,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             $values,
         );
 
-        $allOk = count($items) === 0 || array_reduce($items, fn($carry, Result $r) => $carry && $r->isOk(), true);
+        $allOk = count($items) === 0 || array_reduce($items, fn ($carry, Result $r) => $carry && $r->isOk(), true);
 
         return new self(
             allOk: $allOk,
@@ -115,8 +112,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     //  Basic state
     // ------------------------------------------------------------
 
-    public function isOk(): bool { return $this->allOk; }
-    public function isErr(): bool { return !$this->allOk; }
+    public function isOk(): bool
+    {
+        return $this->allOk;
+    }
+    public function isErr(): bool
+    {
+        return !$this->allOk;
+    }
 
 
     // ------------------------------------------------------------
@@ -183,8 +186,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     //  Needs to return the modified value inside the bind.
     // ------------------------------------------------------------
 
-    public function map(callable $fn): self {
-
+    public function map(callable $fn): self
+    {
         $out = [];
         $newWriter = $this->writer; // start with parent writer
 
@@ -209,8 +212,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         );
     }
 
-    public function mapWithEnv(array $dependencies, callable $fn): self {
-
+    public function mapWithEnv(array $dependencies, callable $fn): self
+    {
         $out = [];
         $newWriter = $this->writer; // start with parent writer
 
@@ -296,7 +299,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         }
 
         // All OK — unwrap the values
-        $values = array_filter(array_map(fn(Result $r) => $r->value(), $this->items));
+        $values = array_filter(array_map(fn (Result $r) => $r->value(), $this->items));
 
         return Result::ok(
             value: $values,
@@ -306,7 +309,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     }
 
     /** collect :: Result::ok([T, T, ...]) */
-    public function collectOk() : Result
+    public function collectOk(): Result
     {
         $out = [];
         foreach ($this->items as $r) {
@@ -335,7 +338,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 throw $r;
             }
         }
-        return array_filter(array_map(fn(Result $r) => $r->value(), $this->items));
+        return array_filter(array_map(fn (Result $r) => $r->value(), $this->items));
     }
 
 
@@ -367,7 +370,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     //  Env (Reader)
     // ------------------------------------------------------------
-    public function env(): Env {
+    public function env(): Env
+    {
         return $this->env;
     }
 
@@ -438,5 +442,4 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     {
         return count($this->items);
     }
-
 }
