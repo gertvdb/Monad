@@ -2,39 +2,29 @@
 
 declare(strict_types=1);
 
-use Gertvdb\Monad\Context\Context;
-use Gertvdb\Monad\Context\ContextCollection;
-use Gertvdb\Monad\Context\ContextType;
-use Gertvdb\Monad\Either;
-use Gertvdb\Monad\Monads\Either\Failure;
-use Gertvdb\Monad\Trace\TraceCommon;
+use Gertvdb\Monad\Result;
+use Gertvdb\Monad\Trace\TraceException;
+use Gertvdb\Monad\Trace\Traces;
 
 /**
  * Functional wrapper around Json serializer.
  */
 final class Example
 {
-    public function __invoke(Either $result): Either
+    public function __invoke(Result $result): Result
     {
         return $result->bind(
             function (object $object) use ($result) {
                 try {
                     $first = $object->item->first;
+                    $extra = new Dep();
+                    $result = $result->withEnv($extra);
+
                     return $result->lift($first);
                 } catch (Throwable $e) {
-                    $contexts = ContextCollection::empty();
 
-                    $extra = new MyExtraCustomErrorContext();
-                    $contexts = $contexts->add($extra);
-
-                    return Failure::dueTo(
-                        message: 'My error',
-                        code: 500,
-                        previous: $e,
-                        trace: TraceCommon::from('Extra trace', time()),
-                        traces: $result->traces(),
-                        contexts: $contexts
-                    );
+                    $result = $result->writeTo(Traces::class, TraceException::from($e, time()));
+                    return $result->fail($e);
                 }
             }
         );
@@ -42,12 +32,7 @@ final class Example
 }
 
 
-final class MyExtraCustomErrorContext implements Context
+final class Dep
 {
     public function __construct(){}
-
-    public function type(): ContextType
-    {
-        return ContextType::Persistent;
-    }
 }
