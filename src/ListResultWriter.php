@@ -6,7 +6,6 @@ namespace Gertvdb\Monad;
 
 final class ListResultWriter implements IWriter
 {
-
     private IWriter $parentWriter;
 
     /** @var array<string, array<int, mixed>> */
@@ -14,8 +13,8 @@ final class ListResultWriter implements IWriter
 
     public function __construct(
         IWriter $parentWriter,
-        array $data = [])
-    {
+        array $data = []
+    ) {
         $this->parentWriter = $parentWriter;
         $this->data = $data;
     }
