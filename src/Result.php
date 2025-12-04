@@ -15,14 +15,14 @@ final readonly class Result implements IResult
     /**
      * @param bool $ok
      * @param mixed $valueOrError
-     * @param Env $env (Reader, use to pass along a certain context needed ex: Locale, Dependency Injection, ...)
-     * @param Writer $writer (Writer, used to store side effects, that can later be executed or listed ex: Traces, Events, ...)
+     * @param IEnv $env (Reader, use to pass along a certain context needed ex: Locale, Dependency Injection, ...)
+     * @param IWriter $writer (Writer, used to store side effects, that can later be executed or listed ex: Traces, Events, ...)
      */
     private function __construct(
         private bool    $ok,
         private mixed   $valueOrError,
-        private Env     $env,
-        private Writer  $writer,
+        private IEnv     $env,
+        private IWriter  $writer,
     ) {
     }
 
@@ -31,8 +31,8 @@ final readonly class Result implements IResult
     // ------------------------------------------------------------
     public static function ok(
         mixed   $value,
-        ?Env    $env = null,
-        ?Writer $writer = null,
+        ?IEnv    $env = null,
+        ?IWriter $writer = null,
     ): self {
         return new self(
             ok: true,
@@ -44,8 +44,8 @@ final readonly class Result implements IResult
 
     public static function err(
         string|Stringable|Throwable $error,
-        ?Env                        $env = null,
-        ?Writer                     $writer = null,
+        ?IEnv                        $env = null,
+        ?IWriter                     $writer = null,
     ): self {
         $dueTo = $error instanceof Throwable ? $error : new Exception((string)$error);
 
@@ -148,14 +148,14 @@ final readonly class Result implements IResult
         $env = [];
 
         foreach ($dependencies as $dependency) {
-            $context = $this->env->get($dependency);
-            if (!$context) {
+            $service = $this->env->get($dependency);
+            if (!$service) {
                 return $this->fail(new LogicException(sprintf(
                     'bindWithEnv() failed: missing env for dependency %s',
                     get_debug_type($dependency)
                 )));
             }
-            $env[$dependency] = $context;
+            $env[$dependency] = $service;
         }
 
         try {
@@ -223,19 +223,14 @@ final readonly class Result implements IResult
 
         $env = [];
 
-        $scopedEnv = Env::empty();
-
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
-                return $this->fail(
-                    new LogicException(sprintf(
-                        'Missing required context: %s',
-                        $dependency
-                    ))
-                );
+                return $this->fail(new LogicException(sprintf(
+                    'bindWithEnv() failed: missing env for dependency %s',
+                    get_debug_type($dependency)
+                )));
             }
-            $scopedEnv->with($dependency);
             $env[$dependency] = $service;
         }
 
@@ -289,13 +284,6 @@ final readonly class Result implements IResult
     // ------------------------------------------------------------
 
     public function fold(callable $onOk, callable $onErr): mixed
-    {
-        return $this->isOk()
-            ? $onOk($this->valueOrError)
-            : $onErr($this->valueOrError);
-    }
-
-    public function foldWithEnv(callable $onOk, callable $onErr): mixed
     {
         return $this->isOk()
             ? $onOk($this->valueOrError, $this->env, $this->writer)
@@ -363,7 +351,7 @@ final readonly class Result implements IResult
     // ------------------------------------------------------------
     //  env (immutable)
     // ------------------------------------------------------------
-    public function env(): Env
+    public function env(): IEnv
     {
         return $this->env;
     }
@@ -391,7 +379,7 @@ final readonly class Result implements IResult
     // ------------------------------------------------------------
     //  Writer (immutable)
     // ------------------------------------------------------------
-    public function writer(): Writer
+    public function writer(): IWriter
     {
         return $this->writer;
     }

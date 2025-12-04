@@ -4,22 +4,28 @@ declare(strict_types=1);
 
 namespace Gertvdb\Monad;
 
-final class Writer implements IWriter
+final class ListResultWriter implements IWriter
 {
+
+    private IWriter $parentWriter;
+
     /** @var array<string, array<int, mixed>> */
     private array $data;
 
-    public function __construct(array $data = [])
+    public function __construct(
+        IWriter $parentWriter,
+        array $data = [])
     {
+        $this->parentWriter = $parentWriter;
         $this->data = $data;
     }
 
     /**
      * Create an empty Writer.
      */
-    public static function empty(): self
+    public static function empty(IWriter $parentWriter): self
     {
-        return new self([]);
+        return new self($parentWriter, []);
     }
 
     /**
@@ -32,15 +38,7 @@ final class Writer implements IWriter
         // Append the value to the array at the given key
         $newData[$channel][] = $value;
 
-        return new self($newData);
-    }
-
-    /**
-     * Get all values for a key. Returns empty array if none.
-     */
-    public function get(string $channel): array
-    {
-        return $this->data[$channel] ?? [];
+        return new self($this->parentWriter, $newData);
     }
 
     /**
@@ -49,18 +47,28 @@ final class Writer implements IWriter
     public function merge(IWriter $other): self
     {
         $newData = $this->data;
-
         foreach ($other->data as $channel => $values) {
             foreach ($values as $value) {
                 $newData[$channel][] = $value;
             }
         }
 
-        return new self($newData);
+        return new self($this->parentWriter, $newData);
+    }
+
+    /**
+     * Get all values for a key. Returns empty array if none.
+     */
+    public function get(string $channel): array
+    {
+        $parentData = $this->parentWriter->get($channel);
+        $childData = $this->data[$channel] ?? [];
+        return array_merge($parentData, $childData);
     }
 
     public function all(): array
     {
-        return $this->data;
+        $parentData = $this->parentWriter->all();
+        return array_merge_recursive($parentData, $this->data);
     }
 }

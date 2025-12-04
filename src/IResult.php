@@ -18,7 +18,7 @@ interface IResult
     // ------------------------------------------------------------
     //  Change
     // ------------------------------------------------------------
-    public function lift(mixed $value): self;
+    //public function lift(mixed $value): self;
 
     // ------------------------------------------------------------
     //  Bind | Map
@@ -40,7 +40,7 @@ interface IResult
     // ------------------------------------------------------------
     //  Env (Reader)
     // ------------------------------------------------------------
-    public function env(): Env;
+    public function env(): IEnv;
     public function withEnv(object $dependency): self;
     public function bindWithEnv(array $dependencies, callable $fn): self;
     public function mapWithEnv(array $dependencies, callable $fn): self;
@@ -48,7 +48,7 @@ interface IResult
     // ------------------------------------------------------------
     //  Writer
     // ------------------------------------------------------------
-    public function writer(): Writer;
+    public function writer(): IWriter;
     public function writeTo(string $channel, mixed $value): self;
     public function writerOutput(string $channel): array;
 }

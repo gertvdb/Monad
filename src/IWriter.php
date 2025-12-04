@@ -23,7 +23,13 @@ interface IWriter
     public function get(string $channel): array;
 
     /**
-     * Merge another Writer into this one. Immutable.
+     * @param IWriter $other
+     * @return self
      */
     public function merge(IWriter $other): self;
+
+    /**
+     * @return array
+     */
+    public function all(): array;
 }
