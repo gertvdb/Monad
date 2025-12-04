@@ -7,7 +7,7 @@ namespace Gertvdb\Monad;
 final class Writer implements IWriter
 {
     /** @var array<string, array<int, mixed>> */
-    private array $data;
+    public readonly array $data;
 
     public function __construct(array $data = [])
     {

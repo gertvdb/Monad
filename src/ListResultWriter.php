@@ -10,7 +10,7 @@ final class ListResultWriter implements IWriter
     private IWriter $parentWriter;
 
     /** @var array<string, array<int, mixed>> */
-    private array $data;
+    public readonly array $data;
 
     public function __construct(
         IWriter $parentWriter,
