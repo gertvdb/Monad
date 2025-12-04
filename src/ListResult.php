@@ -20,8 +20,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         array                    $items,
         private readonly IEnv    $env,
         private readonly IWriter $writer,
-    )
-    {
+    ) {
         $this->items = array_values($items);
     }
 
@@ -32,8 +31,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     public static function empty(
         ?IEnv    $env = null,
         ?IWriter $writer = null
-    ): self
-    {
+    ): self {
         $env = $env ?? Env::empty();
         $writer = $writer ?? Writer::empty();
         return new self(
@@ -52,8 +50,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         array   $values,
         ?IEnv    $env = null,
         ?IWriter $writer = null
-    ): self
-    {
+    ): self {
         $env = $env ?? Env::empty();
         $parentWriter = $writer ?? Writer::empty();
 
@@ -276,7 +273,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         }
 
         // All OK — unwrap the values
-        $values = array_filter(array_map(fn(Result $r) => $r->value(), $this->items));
+        $values = array_filter(array_map(fn (Result $r) => $r->value(), $this->items));
 
         return Result::ok(
             value: $values,
@@ -315,7 +312,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 throw $r;
             }
         }
-        return array_filter(array_map(fn(Result $r) => $r->value(), $this->items));
+        return array_filter(array_map(fn (Result $r) => $r->value(), $this->items));
     }
 
 
@@ -381,7 +378,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             env: $newEnv,
             writer: $this->writer,
         );
-
     }
 
     // ------------------------------------------------------------
@@ -428,7 +424,4 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     {
         return count($this->items);
     }
-
 }
-
-
