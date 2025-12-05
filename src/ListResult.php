@@ -6,6 +6,7 @@ namespace Gertvdb\Monad;
 
 use Countable;
 use IteratorAggregate;
+use LogicException;
 use Traversable;
 use TypeError;
 
@@ -116,15 +117,127 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     public function bind(callable $fn): self
     {
-        return $this->applyOverItems(
-            fn(Result $r) => $r->bind($fn)
+        $out = [];
+        $writer = $this->writer;
+
+        foreach ($this->items as $item) {
+
+            if (!$item->isOk()) {
+                $out[] = $item;
+                $writer = $writer->merge($item->writer());
+                continue;
+            }
+
+            $res = $fn($item->value());
+
+            if ($res instanceof Result) {
+                $writer = $writer->merge($res->writer());
+
+                if (!$res->isOk()) {
+                    $out[] = Result::err($res->error(), $this->env, $writer);
+                } else {
+                    $out[] = Result::ok($res->value(), $this->env, $writer);
+                }
+                continue;
+            }
+
+            $out[] = Result::err(
+                new LogicException(sprintf(
+                    'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapWithEnv() instead.',
+                    get_debug_type($res)
+                )),
+                $this->env,
+                $writer
+            );
+        }
+
+        $allOk = count($out) === 0 || array_reduce(
+                $out,
+                fn(bool $carry, Result $r) => $carry && $r->isOk(),
+                true
+            );
+
+        return new self(
+            allOk: $allOk,
+            items: $out,
+            env: $this->env,
+            writer: $writer
         );
     }
 
+
     public function bindWithEnv(array $dependencies, callable $fn): self
     {
-        return $this->applyOverItems(
-            fn(Result $r) => $r->bindWithEnv($dependencies, $fn)
+        $env = [];
+        $envErrors = [];
+
+        foreach ($dependencies as $dependency) {
+            $service = $this->env->get($dependency);
+            if (!$service) {
+                foreach ($this->items as $item) {
+                    $envErrors[] = $item->fail(new LogicException(sprintf(
+                        'bindWithEnv() failed: missing env for dependency %s',
+                        get_debug_type($dependency)
+                    )));
+                }
+            }
+            $env[$dependency] = $service;
+        }
+
+        if (!empty($envErrors)) {
+            return new self(
+                allOk: false,
+                items: $envErrors,
+                env: $this->env,
+                writer: $this->writer
+            );
+        }
+
+        $out = [];
+        $writer = $this->writer;
+
+        foreach ($this->items as $item) {
+
+            if (!$item->isOk()) {
+                $out[] = $item;
+                $writer = $writer->merge($item->writer());
+                continue;
+            }
+
+            $res = $fn($item->value(), $env);
+
+            if ($res instanceof Result) {
+                $writer = $writer->merge($res->writer());
+
+                if (!$res->isOk()) {
+                    $out[] = Result::err($res->error(), $this->env, $writer);
+                } else {
+                    $out[] = Result::ok($res->value(), $this->env, $writer);
+                }
+                continue;
+            }
+
+            $out[] = Result::err(
+                new LogicException(sprintf(
+                    'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapWithEnv() instead.',
+                    get_debug_type($res)
+                )),
+                $this->env,
+                $writer
+            );
+        }
+
+        $allOk = count($out) === 0 || array_reduce(
+                $out,
+                fn(bool $carry, Result $r) => $carry && $r->isOk(),
+                true
+            );
+
+        return new self(
+            allOk: $allOk,
+            items: $out,
+            env: $this->env,
+            writer: $writer
         );
     }
 
@@ -133,17 +246,116 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     public function map(callable $fn): self
     {
-        return $this->applyOverItems(
-            fn(Result $r) => $r->map($fn)
+        $out = [];
+        $writer = $this->writer;
+
+        foreach ($this->items as $item) {
+            if (!$item->isOk()) {
+                $out[] = $item;
+                $writer = $writer->merge($item->writer());
+                continue;
+            }
+
+            try {
+                // Call user function — user can return plain value
+                $res = $fn($item->value());
+
+                // Wrap plain value in Result::ok() and merge writer
+                $newItem = Result::ok($res, $this->env, $item->writer());
+                $writer = $writer->merge($item->writer());
+
+                $out[] = $newItem;
+
+            } catch (\Throwable $e) {
+                $newItem = Result::err($e, $this->env, $item->writer());
+                $writer = $writer->merge($item->writer());
+                $out[] = $newItem;
+            }
+        }
+
+        $allOk = count($out) === 0 || array_reduce(
+                $out,
+                fn(bool $carry, Result $r) => $carry && $r->isOk(),
+                true
+            );
+
+        return new self(
+            allOk: $allOk,
+            items: $out,
+            env: $this->env,
+            writer: $writer
         );
     }
 
     public function mapWithEnv(array $dependencies, callable $fn): self
     {
-        return $this->applyOverItems(
-            fn(Result $r) => $r->mapWithEnv($dependencies, $fn)
+        $env = [];
+        $envErrors = [];
+
+        // Resolve dependencies from env
+        foreach ($dependencies as $dependency) {
+            $service = $this->env->get($dependency);
+            if (!$service) {
+                foreach ($this->items as $item) {
+                    $envErrors[] = $item->fail(new LogicException(sprintf(
+                        'mapWithEnv() failed: missing env for dependency %s',
+                        get_debug_type($dependency)
+                    )));
+                }
+            }
+            $env[$dependency] = $service;
+        }
+
+        if (!empty($envErrors)) {
+            return new self(
+                allOk: false,
+                items: $envErrors,
+                env: $this->env,
+                writer: $this->writer
+            );
+        }
+
+        $out = [];
+        $writer = $this->writer;
+
+        foreach ($this->items as $item) {
+            if (!$item->isOk()) {
+                $out[] = $item;
+                $writer = $writer->merge($item->writer());
+                continue;
+            }
+
+            try {
+                // Call user function — user can return plain value
+                $res = $fn($item->value(), $env);
+
+                // Wrap plain value in Result::ok() and merge writer
+                $newItem = Result::ok($res, $this->env, $item->writer());
+                $writer = $writer->merge($item->writer());
+
+                $out[] = $newItem;
+
+            } catch (\Throwable $e) {
+                $newItem = Result::err($e, $this->env, $item->writer());
+                $writer = $writer->merge($item->writer());
+                $out[] = $newItem;
+            }
+        }
+
+        $allOk = count($out) === 0 || array_reduce(
+                $out,
+                fn(bool $carry, Result $r) => $carry && $r->isOk(),
+                true
+            );
+
+        return new self(
+            allOk: $allOk,
+            items: $out,
+            env: $this->env,
+            writer: $writer
         );
     }
+
 
     // ------------------------------------------------------------
     //  Inspect (side-effects only)
