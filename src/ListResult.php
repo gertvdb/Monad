@@ -462,7 +462,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     public function writeTo(string $channel, mixed $value): self
     {
         return new self(
-            allOk: true,
+            allOk: $this->allOk,
             items: $this->items,
             env: $this->env,
             writer: $this->writer->write($channel, $value),
