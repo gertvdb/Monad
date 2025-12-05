@@ -117,7 +117,16 @@ final readonly class Result implements IResult
         }
 
         try {
-            $res = $fn($this->valueOrError);
+
+            try {
+                $res = $fn($this->valueOrError);
+            } catch (TypeError $e) {
+                // Catch type mismatches in user callback
+                return $this->fail(new LogicException(sprintf(
+                    'bind() type error in callback: %s',
+                    $e->getMessage()
+                )));
+            }
 
             if ($res instanceof self) {
                 // Merge writers instead of replacing
@@ -156,7 +165,16 @@ final readonly class Result implements IResult
         }
 
         try {
-            $res = $fn($this->valueOrError, $env);
+
+            try {
+                $res = $fn($this->valueOrError, $env);
+            } catch (TypeError $e) {
+                // Catch type mismatches in user callback
+                return $this->fail(new LogicException(sprintf(
+                    'bindWithEnv() type error in callback: %s',
+                    $e->getMessage()
+                )));
+            }
 
             if ($res instanceof self) {
                 $mergedWriter = $this->writer->merge($res->writer());
@@ -185,7 +203,16 @@ final readonly class Result implements IResult
         }
 
         try {
-            $res = $fn($this->valueOrError);
+
+            try {
+                $res = $fn($this->valueOrError);
+            } catch (TypeError $e) {
+                // Catch type mismatches in user callback
+                return $this->fail(new LogicException(sprintf(
+                    'map() type error in callback: %s',
+                    $e->getMessage()
+                )));
+            }
 
             if ($res instanceof self) {
                 // Error: map should return plain value, not Result
@@ -221,7 +248,16 @@ final readonly class Result implements IResult
         }
 
         try {
-            $res = $fn($this->valueOrError, $env);
+
+            try {
+                $res = $fn($this->valueOrError, $env);
+            } catch (TypeError $e) {
+                // Catch type mismatches in user callback
+                return $this->fail(new LogicException(sprintf(
+                    'mapWithEnv() type error in callback: %s',
+                    $e->getMessage()
+                )));
+            }
 
             if ($res instanceof self) {
                 return $this->fail(new LogicException(sprintf(
