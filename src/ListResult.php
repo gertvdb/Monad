@@ -69,8 +69,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     //  State
     // ------------------------------------------------------------
-    public function isOk(): bool { return $this->allOk; }
-    public function isErr(): bool { return !$this->allOk; }
+    public function isOk(): bool
+    {
+        return $this->allOk;
+    }
+    public function isErr(): bool
+    {
+        return !$this->allOk;
+    }
 
     // ------------------------------------------------------------
     //  Shared internal reducer for bind/map operations
@@ -81,7 +87,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $writer = $this->writer;
 
         foreach ($this->items as $item) {
-
             // Leave error items untouched but merge writer
             if (!$item->isOk()) {
                 $out[] = $item;
@@ -99,10 +104,10 @@ final class ListResult implements IResult, IteratorAggregate, Countable
 
         // Compute total OK-state
         $allOk = count($out) === 0 || array_reduce(
-                $out,
-                fn(bool $carry, Result $r) => $carry && $r->isOk(),
-                true
-            );
+            $out,
+            fn (bool $carry, Result $r) => $carry && $r->isOk(),
+            true
+        );
 
         return new self(
             allOk: $allOk,
@@ -121,7 +126,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $writer = $this->writer;
 
         foreach ($this->items as $item) {
-
             if (!$item->isOk()) {
                 $out[] = $item;
                 $writer = $writer->merge($item->writer());
@@ -152,10 +156,10 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         }
 
         $allOk = count($out) === 0 || array_reduce(
-                $out,
-                fn(bool $carry, Result $r) => $carry && $r->isOk(),
-                true
-            );
+            $out,
+            fn (bool $carry, Result $r) => $carry && $r->isOk(),
+            true
+        );
 
         return new self(
             allOk: $allOk,
@@ -197,7 +201,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $writer = $this->writer;
 
         foreach ($this->items as $item) {
-
             if (!$item->isOk()) {
                 $out[] = $item;
                 $writer = $writer->merge($item->writer());
@@ -228,10 +231,10 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         }
 
         $allOk = count($out) === 0 || array_reduce(
-                $out,
-                fn(bool $carry, Result $r) => $carry && $r->isOk(),
-                true
-            );
+            $out,
+            fn (bool $carry, Result $r) => $carry && $r->isOk(),
+            true
+        );
 
         return new self(
             allOk: $allOk,
@@ -265,7 +268,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 $writer = $writer->merge($item->writer());
 
                 $out[] = $newItem;
-
             } catch (\Throwable $e) {
                 $newItem = Result::err($e, $this->env, $item->writer());
                 $writer = $writer->merge($item->writer());
@@ -274,10 +276,10 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         }
 
         $allOk = count($out) === 0 || array_reduce(
-                $out,
-                fn(bool $carry, Result $r) => $carry && $r->isOk(),
-                true
-            );
+            $out,
+            fn (bool $carry, Result $r) => $carry && $r->isOk(),
+            true
+        );
 
         return new self(
             allOk: $allOk,
@@ -334,7 +336,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 $writer = $writer->merge($item->writer());
 
                 $out[] = $newItem;
-
             } catch (\Throwable $e) {
                 $newItem = Result::err($e, $this->env, $item->writer());
                 $writer = $writer->merge($item->writer());
@@ -343,10 +344,10 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         }
 
         $allOk = count($out) === 0 || array_reduce(
-                $out,
-                fn(bool $carry, Result $r) => $carry && $r->isOk(),
-                true
-            );
+            $out,
+            fn (bool $carry, Result $r) => $carry && $r->isOk(),
+            true
+        );
 
         return new self(
             allOk: $allOk,
@@ -363,7 +364,9 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     public function inspectOk(callable $fn): self
     {
         foreach ($this->items as $r) {
-            if ($r->isOk()) $r->inspectOk($fn);
+            if ($r->isOk()) {
+                $r->inspectOk($fn);
+            }
         }
         return $this;
     }
@@ -371,7 +374,9 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     public function inspectErr(callable $fn): self
     {
         foreach ($this->items as $r) {
-            if ($r->isErr()) $r->inspectErr($fn);
+            if ($r->isErr()) {
+                $r->inspectErr($fn);
+            }
         }
         return $this;
     }
@@ -381,7 +386,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     public function filterOk(): self
     {
-        $out = array_filter($this->items, fn(Result $r) => $r->isOk());
+        $out = array_filter($this->items, fn (Result $r) => $r->isOk());
         return new self(
             allOk: true,
             items: $out,
@@ -396,9 +401,11 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     public function unwrap(): array
     {
         foreach ($this->items as $r) {
-            if ($r->isErr()) throw $r;
+            if ($r->isErr()) {
+                throw $r;
+            }
         }
-        return array_map(fn(Result $r) => $r->value(), $this->items);
+        return array_map(fn (Result $r) => $r->value(), $this->items);
     }
 
     // ------------------------------------------------------------
