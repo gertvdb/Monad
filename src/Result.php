@@ -117,7 +117,6 @@ final readonly class Result implements IResult
         }
 
         try {
-
             try {
                 $res = $fn($this->valueOrError);
             } catch (TypeError $e) {
@@ -165,7 +164,6 @@ final readonly class Result implements IResult
         }
 
         try {
-
             try {
                 $res = $fn($this->valueOrError, $env);
             } catch (TypeError $e) {
@@ -203,7 +201,6 @@ final readonly class Result implements IResult
         }
 
         try {
-
             try {
                 $res = $fn($this->valueOrError);
             } catch (TypeError $e) {
@@ -247,7 +244,6 @@ final readonly class Result implements IResult
         }
 
         try {
-
             try {
                 $res = $fn($this->valueOrError, $env);
             } catch (TypeError $e) {
