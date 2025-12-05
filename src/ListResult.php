@@ -6,7 +6,6 @@ namespace Gertvdb\Monad;
 
 use Countable;
 use IteratorAggregate;
-use LogicException;
 use Traversable;
 use TypeError;
 
@@ -27,230 +26,150 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     //  Constructors
     // ------------------------------------------------------------
-
-    public static function empty(
-        ?IEnv    $env = null,
-        ?IWriter $writer = null
-    ): self {
-        $env = $env ?? Env::empty();
-        $writer = $writer ?? Writer::empty();
+    public static function empty(?IEnv $env = null, ?IWriter $writer = null): self
+    {
         return new self(
             allOk: true,
             items: [],
-            env: $env,
-            writer: $writer,
+            env: $env ?? Env::empty(),
+            writer: $writer ?? Writer::empty(),
         );
     }
 
-    /**
-     * Create ListResult from array of values
-     * Wrap each value in Result::ok with env when it is not a Result.
-     **/
-    public static function of(
-        array   $values,
-        ?IEnv    $env = null,
-        ?IWriter $writer = null
-    ): self {
+    public static function of(iterable $values, ?IEnv $env = null, ?IWriter $writer = null): self
+    {
         $env = $env ?? Env::empty();
-        $parentWriter = $writer ?? Writer::empty();
+        $writer = $writer ?? Writer::empty();
+        $new = self::empty($env, $writer);
 
-        $new = self::empty($env, $parentWriter);
         foreach ($values as $value) {
             $new = $new->add($value);
         }
-
         return $new;
     }
 
+    // ------------------------------------------------------------
+    //  Add item
+    // ------------------------------------------------------------
     public function add(mixed $value): self
     {
-        $childWriter = ListResultWriter::empty($this->writer);
-        $newItem = Result::ok($value, $this->env, $childWriter);
-
-        $newItems = array_merge($this->items, [$newItem]);
+        $newItem = ($value instanceof Result)
+            ? $value
+            : Result::ok($value, $this->env, Writer::empty());
 
         return new self(
-            allOk: $this->allOk, // adding 1 oke, will not change state.
-            items: $newItems,
+            allOk: $this->allOk && $newItem->isOk(),
+            items: [...$this->items, $newItem],
             env: $this->env,
-            writer: $this->writer,
+            writer: $this->writer->merge($newItem->writer()),
         );
     }
 
     // ------------------------------------------------------------
-    //  Basic state
+    //  State
     // ------------------------------------------------------------
-
-    public function isOk(): bool
-    {
-        return $this->allOk;
-    }
-
-    public function isErr(): bool
-    {
-        return !$this->allOk;
-    }
-
+    public function isOk(): bool { return $this->allOk; }
+    public function isErr(): bool { return !$this->allOk; }
 
     // ------------------------------------------------------------
-    //  bind | bindWithEnv
-    //  Needs to return a Result inside the bind.
-    //  Change value with with() to keep env.
+    //  Shared internal reducer for bind/map operations
     // ------------------------------------------------------------
-
-    public function bind(callable $fn): self
+    private function applyOverItems(callable $operation): self
     {
         $out = [];
-        $newWriter = $this->writer;
+        $writer = $this->writer;
+
         foreach ($this->items as $item) {
+
+            // Leave error items untouched but merge writer
             if (!$item->isOk()) {
                 $out[] = $item;
-                $newWriter = $newWriter->merge($item->writer());
-
+                $writer = $writer->merge($item->writer());
                 continue;
             }
 
-            $child = $item->bind($fn);
+            // Apply the operation (bind / bindWithEnv / map / mapWithEnv)
+            $child = $operation($item);
             $out[] = $child;
-            $newWriter = $newWriter->merge($child->writer());
+
+            // Merge writer from the child result
+            $writer = $writer->merge($child->writer());
         }
 
-        $allOk = count($out) === 0 || array_reduce($out, fn ($carry, Result $r) => $carry && $r->isOk(), true);
+        // Compute total OK-state
+        $allOk = count($out) === 0 || array_reduce(
+                $out,
+                fn(bool $carry, Result $r) => $carry && $r->isOk(),
+                true
+            );
 
         return new self(
             allOk: $allOk,
             items: $out,
             env: $this->env,
-            writer: $newWriter,
+            writer: $writer
+        );
+    }
+
+    // ------------------------------------------------------------
+    //  bind | bindWithEnv
+    // ------------------------------------------------------------
+    public function bind(callable $fn): self
+    {
+        return $this->applyOverItems(
+            fn(Result $r) => $r->bind($fn)
         );
     }
 
     public function bindWithEnv(array $dependencies, callable $fn): self
     {
-        $out = [];
-        $newWriter = $this->writer;
-        foreach ($this->items as $item) {
-            if (!$item->isOk()) {
-                $out[] = $item;
-                $newWriter = $newWriter->merge($item->writer());
-                continue;
-            }
-
-            $child = $item->bindWithEnv($dependencies, $fn);
-            $out[] = $child;
-            $newWriter = $newWriter->merge($child->writer());
-        }
-
-        $allOk = count($out) === 0 || array_reduce($out, fn ($carry, Result $r) => $carry && $r->isOk(), true);
-
-        return new self(
-            allOk: $allOk,
-            items: $out,
-            env: $this->env,
-            writer: $newWriter,
+        return $this->applyOverItems(
+            fn(Result $r) => $r->bindWithEnv($dependencies, $fn)
         );
     }
 
-
     // ------------------------------------------------------------
     //  map | mapWithEnv
-    //  Needs to return the modified value inside the bind.
     // ------------------------------------------------------------
-
     public function map(callable $fn): self
     {
-        $out = [];
-        $newWriter = $this->writer;
-
-        foreach ($this->items as $item) {
-            if (!$item->isOk()) {
-                $out[] = $item;
-                $newWriter = $newWriter->merge($item->writer());
-                continue;
-            }
-
-            $child = $item->map($fn);
-            $out[] = $child;
-            $newWriter = $newWriter->merge($child->writer());
-        }
-
-        $allOk = count($out) === 0 || array_reduce($out, fn ($carry, Result $r) => $carry && $r->isOk(), true);
-
-        return new self(
-            allOk: $allOk,
-            items: $out,
-            env: $this->env,
-            writer: $newWriter,
+        return $this->applyOverItems(
+            fn(Result $r) => $r->map($fn)
         );
     }
 
     public function mapWithEnv(array $dependencies, callable $fn): self
     {
-        $out = [];
-        $newWriter = $this->writer;
-
-        foreach ($this->items as $item) {
-            if (!$item->isOk()) {
-                $out[] = $item;
-                $newWriter = $newWriter->merge($item->writer());
-                continue;
-            }
-
-            $child = $item->mapWithEnv($dependencies, $fn);
-            $out[] = $child;
-            $newWriter = $newWriter->merge($child->writer());
-        }
-
-        $allOk = count($out) === 0 || array_reduce($out, fn ($carry, Result $r) => $carry && $r->isOk(), true);
-
-        return new self(
-            allOk: $allOk,
-            items: $out,
-            env: $this->env,
-            writer: $this->writer,
+        return $this->applyOverItems(
+            fn(Result $r) => $r->mapWithEnv($dependencies, $fn)
         );
     }
 
     // ------------------------------------------------------------
-    //  Side-effect without changing a pipeline
-    //  (ex: $result->inspectOk(fn($value) => var_dump($value));
+    //  Inspect (side-effects only)
     // ------------------------------------------------------------
     public function inspectOk(callable $fn): self
     {
         foreach ($this->items as $r) {
-            if ($r->isOk()) {
-                $r->inspectOk($fn);
-            }
+            if ($r->isOk()) $r->inspectOk($fn);
         }
-
         return $this;
     }
 
     public function inspectErr(callable $fn): self
     {
         foreach ($this->items as $r) {
-            if ($r->isErr()) {
-                $r->inspectErr($fn);
-            }
+            if ($r->isErr()) $r->inspectErr($fn);
         }
-
         return $this;
     }
 
     // ------------------------------------------------------------
     //  Filter
     // ------------------------------------------------------------
-
     public function filterOk(): self
     {
-        $out = [];
-        foreach ($this->items as $item) {
-            if (!$item->isOk()) {
-                continue;
-            }
-            $out[] = $item;
-        }
-
+        $out = array_filter($this->items, fn(Result $r) => $r->isOk());
         return new self(
             allOk: true,
             items: $out,
@@ -260,89 +179,18 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     }
 
     // ------------------------------------------------------------
-    // Collect / Traverse
+    //  Unwrap
     // ------------------------------------------------------------
-
-    /** collect :: Result::ok([T, T, ...]) || Result::err('first error') */
-    public function collect(): Result
-    {
-        foreach ($this->items as $r) {
-            if ($r->isErr()) {
-                return $r;
-            }
-        }
-
-        // All OK — unwrap the values
-        $values = array_filter(array_map(fn (Result $r) => $r->value(), $this->items));
-
-        return Result::ok(
-            value: $values,
-            env: $this->env,
-            writer: $this->writer,
-        );
-    }
-
-    /** collect :: Result::ok([T, T, ...]) */
-    public function collectOk(): Result
-    {
-        $out = [];
-        foreach ($this->items as $r) {
-            if (!$r->isErr()) {
-                $out[] = $r->value();
-            }
-        }
-
-        return Result::ok(
-            value: $out,
-            env: $this->env,
-            writer: $this->writer,
-        );
-    }
-
-
-    // ------------------------------------------------------------
-    // Unwrapping
-    // ------------------------------------------------------------
-
-    /** Returns list of T objects */
     public function unwrap(): array
     {
         foreach ($this->items as $r) {
-            if ($r->isErr()) {
-                throw $r;
-            }
+            if ($r->isErr()) throw $r;
         }
-        return array_filter(array_map(fn (Result $r) => $r->value(), $this->items));
-    }
-
-
-    // ------------------------------------------------------------
-    // Head / Only
-    // ------------------------------------------------------------
-
-    public function head(): Result
-    {
-        if (empty($this->items)) {
-            return Result::err(
-                new LogicException("Cannot call head() on empty ListResult")
-            );
-        }
-        return $this->items[0];
-    }
-
-    public function only(): Result
-    {
-        $count = count($this->items);
-        if ($count !== 1) {
-            return Result::err(
-                new LogicException(sprintf("ListResult::only() expects exactly 1 element, got %s", $count))
-            );
-        }
-        return $this->items[0];
+        return array_map(fn(Result $r) => $r->value(), $this->items);
     }
 
     // ------------------------------------------------------------
-    //  Env (Reader)
+    //  Env
     // ------------------------------------------------------------
     public function env(): IEnv
     {
@@ -351,32 +199,34 @@ final class ListResult implements IResult, IteratorAggregate, Countable
 
     public function withEnv(object ...$dependencies): self
     {
-        $out = $this->items;
         $newEnv = $this->env;
+        $out = [];
+
         foreach ($dependencies as $dep) {
             if (!is_object($dep)) {
-                $err = new TypeError(sprintf('withEnv() expects objects as a dependency got %s', gettype($dep)));
+                $err = new TypeError(
+                    sprintf('withEnv() expects objects, got %s', gettype($dep))
+                );
+
                 foreach ($this->items as $item) {
-                    if (!$item->isOk()) {
-                        $out[] = $item;
-                    }
-                    $out[] = Result::err(
-                        error: $err,
-                        env: $this->env,
-                        writer: $this->writer,
-                    );
+                    $out[] = Result::err($err, env: $this->env, writer: $this->writer);
                 }
+
+                return new self(
+                    allOk: false,
+                    items: $out,
+                    env: $this->env,
+                    writer: $this->writer
+                );
             }
             $newEnv = $newEnv->with($dep);
         }
 
-        $allOk = count($out) === 0 || array_reduce($out, fn ($carry, Result $r) => $carry && $r->isOk(), true);
-
         return new self(
-            allOk: $allOk,
-            items: $out,
+            allOk: $this->allOk,
+            items: $this->items,
             env: $newEnv,
-            writer: $this->writer,
+            writer: $this->writer
         );
     }
 
@@ -388,16 +238,13 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         return $this->writer;
     }
 
-    public function writeTo(string $channel, mixed $value): IResult
+    public function writeTo(string $channel, mixed $value): self
     {
-        // new writer for parent
-        $newWriter = $this->writer->write($channel, $value);
-
         return new self(
             allOk: true,
             items: $this->items,
             env: $this->env,
-            writer: $newWriter,
+            writer: $this->writer->write($channel, $value),
         );
     }
 
@@ -406,19 +253,13 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         return $this->writer->get($channel);
     }
 
-
     // ------------------------------------------------------------
-    //  Iterator (immutable)
+    //  Iterator & Countable
     // ------------------------------------------------------------
-
     public function getIterator(): Traversable
     {
         yield from $this->items;
     }
-
-    // ------------------------------------------------------------
-    //  Countable
-    // ------------------------------------------------------------
 
     public function count(): int
     {
