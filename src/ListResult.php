@@ -86,7 +86,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $out = [];
         $writer = $this->writer;
 
-        foreach ($this->items as $item) {
+        $total = count($this->items);
+        foreach ($this->items as $index => $item) {
             if (!$item->isOk()) {
                 $out[] = $item;
                 $writer = $writer->merge($item->writer());
@@ -94,7 +95,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             }
 
             try {
-                $res = $fn($item->value());
+                $res = $fn($item->value(), $index, $total);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
                 $out[] = $item->fail(new LogicException(sprintf(
@@ -172,7 +173,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $out = [];
         $writer = $this->writer;
 
-        foreach ($this->items as $item) {
+        $total = count($this->items);
+        foreach ($this->items as $index => $item) {
             if (!$item->isOk()) {
                 $out[] = $item;
                 $writer = $writer->merge($item->writer());
@@ -180,7 +182,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             }
 
             try {
-                $res = $fn($item->value(), $env);
+                $res = $fn($item->value(), $env, $index, $total);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
                 $out[] = $item->fail(new LogicException(sprintf(
@@ -234,7 +236,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $out = [];
         $writer = $this->writer;
 
-        foreach ($this->items as $item) {
+        $total = count($this->items);
+        foreach ($this->items as $index => $item) {
             if (!$item->isOk()) {
                 $out[] = $item;
                 $writer = $writer->merge($item->writer());
@@ -243,7 +246,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
 
             try {
                 try {
-                    $res = $fn($item->value());
+                    $res = $fn($item->value(), $index, $total);
                 } catch (TypeError $e) {
                     // Catch type mismatches in user callback
                     $out[] = $item->fail(new LogicException(sprintf(
@@ -311,7 +314,8 @@ final class ListResult implements IResult, IteratorAggregate, Countable
         $out = [];
         $writer = $this->writer;
 
-        foreach ($this->items as $item) {
+        $total = count($this->items);
+        foreach ($this->items as $index => $item) {
             if (!$item->isOk()) {
                 $out[] = $item;
                 $writer = $writer->merge($item->writer());
@@ -322,7 +326,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 // Call user function — user can return plain value
 
                 try {
-                    $res = $fn($item->value(), $env);
+                    $res = $fn($item->value(), $env, $index, $total);
                 } catch (TypeError $e) {
                     // Catch type mismatches in user callback
                     $out[] = $item->fail(new LogicException(sprintf(
