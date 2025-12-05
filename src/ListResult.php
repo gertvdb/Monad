@@ -79,45 +79,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     }
 
     // ------------------------------------------------------------
-    //  Shared internal reducer for bind/map operations
-    // ------------------------------------------------------------
-    private function applyOverItems(callable $operation): self
-    {
-        $out = [];
-        $writer = $this->writer;
-
-        foreach ($this->items as $item) {
-            // Leave error items untouched but merge writer
-            if (!$item->isOk()) {
-                $out[] = $item;
-                $writer = $writer->merge($item->writer());
-                continue;
-            }
-
-            // Apply the operation (bind / bindWithEnv / map / mapWithEnv)
-            $child = $operation($item);
-            $out[] = $child;
-
-            // Merge writer from the child result
-            $writer = $writer->merge($child->writer());
-        }
-
-        // Compute total OK-state
-        $allOk = count($out) === 0 || array_reduce(
-            $out,
-            fn (bool $carry, Result $r) => $carry && $r->isOk(),
-            true
-        );
-
-        return new self(
-            allOk: $allOk,
-            items: $out,
-            env: $this->env,
-            writer: $writer
-        );
-    }
-
-    // ------------------------------------------------------------
     //  bind | bindWithEnv
     // ------------------------------------------------------------
     public function bind(callable $fn): self
@@ -132,7 +93,18 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 continue;
             }
 
-            $res = $fn($item->value());
+            try {
+                $res = $fn($item->value());
+            } catch (TypeError $e) {
+                // Catch type mismatches in user callback
+                $out[] = $item->fail(new LogicException(sprintf(
+                    'bind() type error in callback: %s',
+                    $e->getMessage()
+                )));
+                $writer = $writer->merge($item->writer());
+                continue;
+            }
+
 
             if ($res instanceof Result) {
                 $writer = $writer->merge($res->writer());
@@ -207,7 +179,17 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 continue;
             }
 
-            $res = $fn($item->value(), $env);
+            try {
+                $res = $fn($item->value(), $env);
+            } catch (TypeError $e) {
+                // Catch type mismatches in user callback
+                $out[] = $item->fail(new LogicException(sprintf(
+                    'bindWithEnv() type error in callback: %s',
+                    $e->getMessage()
+                )));
+                $writer = $writer->merge($item->writer());
+                continue;
+            }
 
             if ($res instanceof Result) {
                 $writer = $writer->merge($res->writer());
@@ -260,8 +242,17 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             }
 
             try {
-                // Call user function — user can return plain value
-                $res = $fn($item->value());
+                try {
+                    $res = $fn($item->value());
+                } catch (TypeError $e) {
+                    // Catch type mismatches in user callback
+                    $out[] = $item->fail(new LogicException(sprintf(
+                        'map() type error in callback: %s',
+                        $e->getMessage()
+                    )));
+                    $writer = $writer->merge($item->writer());
+                    continue;
+                }
 
                 // Wrap plain value in Result::ok() and merge writer
                 $newItem = Result::ok($res, $this->env, $item->writer());
@@ -329,7 +320,18 @@ final class ListResult implements IResult, IteratorAggregate, Countable
 
             try {
                 // Call user function — user can return plain value
-                $res = $fn($item->value(), $env);
+
+                try {
+                    $res = $fn($item->value(), $env);
+                } catch (TypeError $e) {
+                    // Catch type mismatches in user callback
+                    $out[] = $item->fail(new LogicException(sprintf(
+                        'mapWithEnv() type error in callback: %s',
+                        $e->getMessage()
+                    )));
+                    $writer = $writer->merge($item->writer());
+                    continue;
+                }
 
                 // Wrap plain value in Result::ok() and merge writer
                 $newItem = Result::ok($res, $this->env, $item->writer());
