@@ -196,7 +196,6 @@ final readonly class Result implements IResult
             }
 
             return new self($res, true, $this->env, $this->writer);
-
         } catch (Throwable $e) {
             return $this->fail($e);
         }
@@ -232,7 +231,6 @@ final readonly class Result implements IResult
 
             // Wrap plain value in Result, preserve writer
             return new self($res, true, $this->env, $this->writer);
-
         } catch (Throwable $e) {
             return $this->fail($e);
         }
