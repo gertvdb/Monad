@@ -113,40 +113,37 @@ final readonly class Result implements IResult
     public function bind(callable $fn): self
     {
         if ($this->isErr()) {
-            return $this;
+            return $this; // already an error Result
         }
 
         try {
-            $result = $fn($this->valueOrError);
+            $res = $fn($this->valueOrError);
 
-            if ($result instanceof self) {
-                return $result;
+            if ($res instanceof self) {
+                // Merge writers instead of replacing
+                $mergedWriter = $this->writer->merge($res->writer());
+                return new self($res->isOk() ? $res->unwrap() : $res->unwrapErr(), $res->isOk(), $this->env, $mergedWriter);
             }
 
+            // Callback returned plain value → return an error Result
             return $this->fail(new LogicException(sprintf(
-                'bind() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use map() instead.',
-                get_debug_type($result)
+                'bind() expected a Result return (T -> Result<U>), but got %s. Use map() for plain values.',
+                get_debug_type($res)
             )));
-        } catch (TypeError $e) {
-            return $this->fail(
-                new LogicException(sprintf(
-                    'Type mismatch in bind: %s',
-                    $e->getMessage()
-                ))
-            );
         } catch (Throwable $e) {
-            return $this->fail($e);
+            return $this->fail($e); // exceptions become Result::err
         }
     }
+
+
 
     public function bindWithEnv(array $dependencies, callable $fn): self
     {
         if ($this->isErr()) {
-            return $this;
+            return $this; // already an error
         }
 
         $env = [];
-
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
@@ -159,23 +156,18 @@ final readonly class Result implements IResult
         }
 
         try {
-            $result = $fn($this->valueOrError, $env);
+            $res = $fn($this->valueOrError, $env);
 
-            if ($result instanceof self) {
-                return $result;
+            if ($res instanceof self) {
+                $mergedWriter = $this->writer->merge($res->writer());
+                return new self($res->isOk() ? $res->unwrap() : $res->unwrapErr(), $res->isOk(), $this->env, $mergedWriter);
             }
 
+            // Callback returned plain value → return error Result
             return $this->fail(new LogicException(sprintf(
-                'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapEnv() instead.',
-                get_debug_type($result)
+                'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. Use mapWithEnv() for plain values.',
+                get_debug_type($res)
             )));
-        } catch (TypeError $e) {
-            return $this->fail(
-                new LogicException(sprintf(
-                    'Type mismatch in bindWithEnv: %s',
-                    $e->getMessage()
-                ))
-            );
         } catch (Throwable $e) {
             return $this->fail($e);
         }
@@ -193,23 +185,18 @@ final readonly class Result implements IResult
         }
 
         try {
-            $result = $fn($this->valueOrError);
+            $res = $fn($this->valueOrError);
 
-            if ($result instanceof self) {
-                return $this->fail(new LogicException(
-                    'map() must return a plain value (T -> U). It cannot return a Result. '
-                    . 'If your function returns a Result, use bind() instead.'
-                ));
+            if ($res instanceof self) {
+                // Error: map should return plain value, not Result
+                return $this->fail(new LogicException(sprintf(
+                    'map() expected a plain value (T -> U), but got %s. Use bind() if you want to return a Result.',
+                    get_debug_type($res)
+                )));
             }
 
-            return $this->lift($result);
-        } catch (TypeError $e) {
-            return $this->fail(
-                new LogicException(sprintf(
-                    'Type mismatch in Map: %s',
-                    $e->getMessage()
-                ))
-            );
+            return new self($res, true, $this->env, $this->writer);
+
         } catch (Throwable $e) {
             return $this->fail($e);
         }
@@ -222,12 +209,11 @@ final readonly class Result implements IResult
         }
 
         $env = [];
-
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
                 return $this->fail(new LogicException(sprintf(
-                    'bindWithEnv() failed: missing env for dependency %s',
+                    'mapWithEnv() failed: missing env for dependency %s',
                     get_debug_type($dependency)
                 )));
             }
@@ -235,23 +221,18 @@ final readonly class Result implements IResult
         }
 
         try {
-            $result = $fn($this->valueOrError, $env);
+            $res = $fn($this->valueOrError, $env);
 
-            if ($result instanceof self) {
-                return $this->fail(new LogicException(
-                    'mapWithEnv() must return a plain value (T, env -> U). It cannot return a Result. '
-                    . 'If your function returns a Result, use bindWithEnv() instead.'
-                ));
+            if ($res instanceof self) {
+                return $this->fail(new LogicException(sprintf(
+                    'mapWithEnv() expected a plain value (T -> U), but got %s. Use bindWithEnv() if you want to return a Result.',
+                    get_debug_type($res)
+                )));
             }
 
-            return $this->lift($result);
-        } catch (TypeError $e) {
-            return $this->fail(
-                new LogicException(sprintf(
-                    'Type mismatch in mapWithEnv: %s',
-                    $e->getMessage()
-                ))
-            );
+            // Wrap plain value in Result, preserve writer
+            return new self($res, true, $this->env, $this->writer);
+
         } catch (Throwable $e) {
             return $this->fail($e);
         }
