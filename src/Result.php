@@ -31,29 +31,25 @@ final readonly class Result implements IResult
     // ------------------------------------------------------------
     public static function ok(
         mixed   $value,
-        ?IEnv    $env = null,
-        ?IWriter $writer = null,
     ): self {
         return new self(
             ok: true,
             valueOrError: $value,
-            env: $env ?? Env::empty(),
-            writer: $writer ?? Writer::empty(),
+            env: Env::empty(),
+            writer: Writer::empty(),
         );
     }
 
     public static function err(
         string|Stringable|Throwable $error,
-        ?IEnv                        $env = null,
-        ?IWriter                     $writer = null,
     ): self {
         $dueTo = $error instanceof Throwable ? $error : new Exception((string)$error);
 
         return new self(
             ok: false,
             valueOrError: $dueTo,
-            env: $env ?? Env::empty(),
-            writer: $writer ?? Writer::empty(),
+            env: Env::empty(),
+            writer: Writer::empty(),
         );
     }
 
@@ -65,43 +61,10 @@ final readonly class Result implements IResult
     {
         return $this->ok;
     }
+
     public function isErr(): bool
     {
         return !$this->ok;
-    }
-
-    // ------------------------------------------------------------
-    //  Transform / Failing
-    // ------------------------------------------------------------
-
-    /**
-     * lift() produces a new Result::ok with the passed value and keeps env and writer.
-     */
-    public function lift(mixed $value): self
-    {
-        if ($this->isErr()) {
-            return $this;
-        }
-
-        return new self(
-            ok: true,
-            valueOrError: $value,
-            env: $this->env,
-            writer: $this->writer,
-        );
-    }
-
-    /**
-     * fail() produces a new Result::err with the passed error and keeps env and writer.
-     */
-    public function fail(string|Stringable|Throwable $error): self
-    {
-        $dueTo = $error instanceof Throwable ? $error : new Exception((string)$error);
-        return self::err(
-            error: $dueTo,
-            env: $this->env,
-            writer: $this->writer,
-        );
     }
 
     // ------------------------------------------------------------
@@ -121,25 +84,36 @@ final readonly class Result implements IResult
                 $res = $fn($this->valueOrError);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
-                return $this->fail(new LogicException(sprintf(
-                    'bind() type error in callback: %s',
-                    $e->getMessage()
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'bind() type error in callback: %s',
+                        $e->getMessage()
+                    ))
+                );
             }
 
             if ($res instanceof self) {
                 // Merge writers instead of replacing
                 $mergedWriter = $this->writer->merge($res->writer());
-                return new self($res->isOk() ? $res->unwrap() : $res->unwrapErr(), $res->isOk(), $this->env, $mergedWriter);
+                return new self(
+                    ok: $res->isOk(),
+                    valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
+                    env: $this->env,
+                    writer: $mergedWriter
+                );
             }
 
             // Callback returned plain value → return an error Result
-            return $this->fail(new LogicException(sprintf(
-                'bind() expected a Result return (T -> Result<U>), but got %s. Use map() for plain values.',
-                get_debug_type($res)
-            )));
+            return $this->fail(
+                error: new LogicException(sprintf(
+                    'bind() expected a Result return (T -> Result<U>), but got %s. Use map() for plain values.',
+                    get_debug_type($res)
+                ))
+            );
         } catch (Throwable $e) {
-            return $this->fail($e); // exceptions become Result::err
+            return $this->fail(
+                error: $e
+            );
         }
     }
 
@@ -155,10 +129,12 @@ final readonly class Result implements IResult
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
-                return $this->fail(new LogicException(sprintf(
-                    'bindWithEnv() failed: missing env for dependency %s',
-                    get_debug_type($dependency)
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'bindWithEnv() failed: missing env for dependency %s',
+                        get_debug_type($dependency)
+                    ))
+                );
             }
             $env[$dependency] = $service;
         }
@@ -168,24 +144,35 @@ final readonly class Result implements IResult
                 $res = $fn($this->valueOrError, $env);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
-                return $this->fail(new LogicException(sprintf(
-                    'bindWithEnv() type error in callback: %s',
-                    $e->getMessage()
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'bindWithEnv() type error in callback: %s',
+                        $e->getMessage()
+                    ))
+                );
             }
 
             if ($res instanceof self) {
                 $mergedWriter = $this->writer->merge($res->writer());
-                return new self($res->isOk() ? $res->unwrap() : $res->unwrapErr(), $res->isOk(), $this->env, $mergedWriter);
+                return new self(
+                    ok: $res->isOk(),
+                    valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
+                    env: $this->env,
+                    writer: $mergedWriter
+                );
             }
 
             // Callback returned plain value → return error Result
-            return $this->fail(new LogicException(sprintf(
-                'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. Use mapWithEnv() for plain values.',
-                get_debug_type($res)
-            )));
+            return $this->fail(
+                error: new LogicException(sprintf(
+                    'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. Use mapWithEnv() for plain values.',
+                    get_debug_type($res)
+                ))
+            );
         } catch (Throwable $e) {
-            return $this->fail($e);
+            return $this->fail(
+                error: $e
+            );
         }
     }
 
@@ -205,23 +192,34 @@ final readonly class Result implements IResult
                 $res = $fn($this->valueOrError);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
-                return $this->fail(new LogicException(sprintf(
-                    'map() type error in callback: %s',
-                    $e->getMessage()
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'map() type error in callback: %s',
+                        $e->getMessage()
+                    ))
+                );
             }
 
             if ($res instanceof self) {
                 // Error: map should return plain value, not Result
-                return $this->fail(new LogicException(sprintf(
-                    'map() expected a plain value (T -> U), but got %s. Use bind() if you want to return a Result.',
-                    get_debug_type($res)
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'map() expected a plain value (T -> U), but got %s. Use bind() if you want to return a Result.',
+                        get_debug_type($res)
+                    ))
+                );
             }
 
-            return new self($res, true, $this->env, $this->writer);
+            return new self(
+                ok: true,
+                valueOrError: $res,
+                env: $this->env,
+                writer: $this->writer
+            );
         } catch (Throwable $e) {
-            return $this->fail($e);
+            return $this->fail(
+                error: $e
+            );
         }
     }
 
@@ -235,10 +233,12 @@ final readonly class Result implements IResult
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
-                return $this->fail(new LogicException(sprintf(
-                    'mapWithEnv() failed: missing env for dependency %s',
-                    get_debug_type($dependency)
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'mapWithEnv() failed: missing env for dependency %s',
+                        get_debug_type($dependency)
+                    ))
+                );
             }
             $env[$dependency] = $service;
         }
@@ -248,23 +248,34 @@ final readonly class Result implements IResult
                 $res = $fn($this->valueOrError, $env);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
-                return $this->fail(new LogicException(sprintf(
-                    'mapWithEnv() type error in callback: %s',
-                    $e->getMessage()
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'mapWithEnv() type error in callback: %s',
+                        $e->getMessage()
+                    ))
+                );
             }
 
             if ($res instanceof self) {
-                return $this->fail(new LogicException(sprintf(
-                    'mapWithEnv() expected a plain value (T -> U), but got %s. Use bindWithEnv() if you want to return a Result.',
-                    get_debug_type($res)
-                )));
+                return $this->fail(
+                    error: new LogicException(sprintf(
+                        'mapWithEnv() expected a plain value (T -> U), but got %s. Use bindWithEnv() if you want to return a Result.',
+                        get_debug_type($res)
+                    ))
+                );
             }
 
             // Wrap plain value in Result, preserve writer
-            return new self($res, true, $this->env, $this->writer);
+            return new self(
+                ok: true,
+                valueOrError: $res,
+                env: $this->env,
+                writer: $this->writer
+            );
         } catch (Throwable $e) {
-            return $this->fail($e);
+            return $this->fail(
+                error: $e
+            );
         }
     }
 
@@ -372,8 +383,9 @@ final readonly class Result implements IResult
         $env = $this->env;
         foreach ($dependencies as $dep) {
             if (!is_object($dep)) {
-                $err = new TypeError(sprintf('withEnv() expects objects as a dependency got %s', gettype($dep)));
-                return $this->fail($err);
+                return $this->fail(
+                    error: new TypeError(sprintf('withEnv() expects objects as a dependency got %s', gettype($dep)))
+                );
             }
             $env = $env->with($dep);
         }
@@ -409,5 +421,16 @@ final readonly class Result implements IResult
     public function writerOutput(string $channel): array
     {
         return $this->writer->get($channel);
+    }
+
+
+    private function fail(Throwable $error): self
+    {
+        return new self(
+            ok: false,
+            valueOrError: $error,
+            env: $this->env,
+            writer: $this->writer,
+        );
     }
 }
