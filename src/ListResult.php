@@ -434,7 +434,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     {
         foreach ($this->items as $r) {
             if ($r->isErr()) {
-                throw $r;
+                throw $r->error();
             }
         }
         return array_map(fn (Result $r) => $r->value(), $this->items);
