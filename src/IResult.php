@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Gertvdb\Monad;
 
-use Stringable;
-use Throwable;
+use Gertvdb\Monad\Env\IEnv;
+use Gertvdb\Monad\Writer\IWriter;
 
 interface IResult
 {
