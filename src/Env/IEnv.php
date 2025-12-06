@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Gertvdb\Monad;
+namespace Gertvdb\Monad\Env;
 
 interface IEnv
 {

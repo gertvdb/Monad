@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Gertvdb\Monad;
 
 use Countable;
+use Gertvdb\Monad\Env\Env;
+use Gertvdb\Monad\Env\IEnv;
+use Gertvdb\Monad\Writer\IWriter;
+use Gertvdb\Monad\Writer\Writer;
 use IteratorAggregate;
 use LogicException;
 use Traversable;
