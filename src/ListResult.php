@@ -98,10 +98,11 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 $res = $fn($item->value(), $index, $total);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
-                $out[] = $item->fail(new LogicException(sprintf(
-                    'bind() type error in callback: %s',
-                    $e->getMessage()
-                )));
+                $out[] = $item->bind(function () use ($e) {
+                    return Result::err(
+                        error: $e
+                    );
+                });
                 $writer = $writer->merge($item->writer());
                 continue;
             }
@@ -152,10 +153,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             $service = $this->env->get($dependency);
             if (!$service) {
                 foreach ($this->items as $item) {
-                    $envErrors[] = $item->fail(new LogicException(sprintf(
-                        'bindWithEnv() failed: missing env for dependency %s',
-                        get_debug_type($dependency)
-                    )));
+                    $envErrors[] = $item->bind(function () use ($dependency) {
+                        return Result::err(
+                            error: new LogicException(sprintf(
+                                'bindWithEnv() failed: missing env for dependency %s',
+                                get_debug_type($dependency)
+                            ))
+                        );
+                    });
                 }
             }
             $env[$dependency] = $service;
@@ -185,10 +190,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 $res = $fn($item->value(), $env, $index, $total);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
-                $out[] = $item->fail(new LogicException(sprintf(
-                    'bindWithEnv() type error in callback: %s',
-                    $e->getMessage()
-                )));
+                $out[] = $item->bind(function () use ($e) {
+                    return Result::err(
+                        error: new LogicException(sprintf(
+                            'bindWithEnv() type error in callback: %s',
+                            $e->getMessage()
+                        ))
+                    );
+                });
                 $writer = $writer->merge($item->writer());
                 continue;
             }
@@ -249,10 +258,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                     $res = $fn($item->value(), $index, $total);
                 } catch (TypeError $e) {
                     // Catch type mismatches in user callback
-                    $out[] = $item->fail(new LogicException(sprintf(
-                        'map() type error in callback: %s',
-                        $e->getMessage()
-                    )));
+                    $out[] = $item->bind(function () use ($e) {
+                        return Result::err(
+                            error: new LogicException(sprintf(
+                                'map() type error in callback: %s',
+                                $e->getMessage()
+                            ))
+                        );
+                    });
                     $writer = $writer->merge($item->writer());
                     continue;
                 }
@@ -293,10 +306,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             $service = $this->env->get($dependency);
             if (!$service) {
                 foreach ($this->items as $item) {
-                    $envErrors[] = $item->fail(new LogicException(sprintf(
-                        'mapWithEnv() failed: missing env for dependency %s',
-                        get_debug_type($dependency)
-                    )));
+                    $envErrors[] = $item->bind(function () use ($dependency) {
+                        return Result::err(
+                            error: new LogicException(sprintf(
+                                'mapWithEnv() failed: missing env for dependency %s',
+                                get_debug_type($dependency)
+                            ))
+                        );
+                    });
                 }
             }
             $env[$dependency] = $service;
@@ -329,10 +346,15 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                     $res = $fn($item->value(), $env, $index, $total);
                 } catch (TypeError $e) {
                     // Catch type mismatches in user callback
-                    $out[] = $item->fail(new LogicException(sprintf(
-                        'mapWithEnv() type error in callback: %s',
-                        $e->getMessage()
-                    )));
+                    $out[] = $item->bind(function () use ($e) {
+                       return Result::err(
+                           error: new LogicException(sprintf(
+                               'mapWithEnv() type error in callback: %s',
+                               $e->getMessage()
+                           ))
+                       );
+                    });
+
                     $writer = $writer->merge($item->writer());
                     continue;
                 }
@@ -434,7 +456,11 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 );
 
                 foreach ($this->items as $item) {
-                    $out[] = Result::err($err, env: $this->env, writer: $this->writer);
+                    $out[] = $item->bind(function () use ($err) {
+                        return Result::err(
+                            error: $err
+                        );
+                    });
                 }
 
                 return new self(
