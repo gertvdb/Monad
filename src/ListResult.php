@@ -347,12 +347,12 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 } catch (TypeError $e) {
                     // Catch type mismatches in user callback
                     $out[] = $item->bind(function () use ($e) {
-                       return Result::err(
-                           error: new LogicException(sprintf(
-                               'mapWithEnv() type error in callback: %s',
-                               $e->getMessage()
-                           ))
-                       );
+                        return Result::err(
+                            error: new LogicException(sprintf(
+                                'mapWithEnv() type error in callback: %s',
+                                $e->getMessage()
+                            ))
+                        );
                     });
 
                     $writer = $writer->merge($item->writer());
