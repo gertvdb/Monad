@@ -14,7 +14,7 @@ use Stringable;
 use Throwable;
 use TypeError;
 
-final readonly class Result implements IResult
+final readonly class Result implements IResult, IComposedMonad
 {
     /**
      * @param bool $ok
@@ -120,8 +120,6 @@ final readonly class Result implements IResult
             );
         }
     }
-
-
 
     public function bindWithEnv(array $dependencies, callable $fn): self
     {
@@ -283,6 +281,158 @@ final readonly class Result implements IResult
         }
     }
 
+
+    // ------------------------------------------------------------
+    //  apply |
+    // Takes a Result<callable> and applies it to this Result<T>
+    // ------------------------------------------------------------
+
+    public function apply(self $fnResult): self
+    {
+        // If either side is an Err → short-circuit with the first error
+        if ($this->isErr()) {
+            return $this;
+        }
+        if ($fnResult->isErr()) {
+            return $fnResult;
+        }
+
+        // Extract function (ensure it's callable)
+        $fn = $fnResult->unwrap();
+        if (!is_callable($fn)) {
+            return $this->fail(
+                new LogicException(sprintf(
+                    'apply() expects Result<callable>, got %s',
+                    get_debug_type($fn)
+                ))
+            );
+        }
+
+        // Apply function safely
+        try {
+            try {
+                $newValue = $fn($this->valueOrError);
+            } catch (TypeError $e) {
+                return $this->fail(
+                    new LogicException(sprintf(
+                        'apply() callable type error: %s',
+                        $e->getMessage()
+                    ))
+                );
+            }
+        } catch (Throwable $e) {
+            return $this->fail($e);
+        }
+
+        // Function must return plain value (not another Result)
+        if ($newValue instanceof self) {
+            return $this->fail(
+                new LogicException(
+                    'apply() callable must return plain value, not a Result. Use bind() for nested results.'
+                )
+            );
+        }
+
+        // Merge writers just like in bind()
+        $mergedWriter = $this->writer->merge($fnResult->writer());
+
+        return new self(
+            ok: true,
+            valueOrError: $newValue,
+            env: $this->env,     // preserve env
+            writer: $mergedWriter
+        );
+    }
+
+    // ------------------------------------------------------------
+    //  applyWithEnv
+    //  Applicative version that passes Env to the function.
+    //  Takes Result<callable($value, array $env): U>
+    //  and applies it to this Result<T>
+    //  producing Result<U>.
+    //
+    //  Rules:
+    //  - If either this or the function is Err → return Err
+    //  - Function receives ($value, $envArray)
+    //  - Function must return a plain value, not a Result
+    //  - Env is passed but never changed
+    //  - Writers merge (same as bind)
+    // ------------------------------------------------------------
+    public function applyWithEnv(self $fnResult, array $dependencies = []): self
+    {
+        // Short-circuit on existing error
+        if ($this->isErr()) {
+            return $this;
+        }
+
+        if ($fnResult->isErr()) {
+            return $fnResult;
+        }
+
+        // Extract the callable from Result<callable>
+        $fn = $fnResult->unwrap();
+        if (!is_callable($fn)) {
+            return $this->fail(
+                new LogicException(sprintf(
+                    'applyWithEnv() expects Result<callable>, got %s',
+                    get_debug_type($fn)
+                ))
+            );
+        }
+
+        // Build env array for callback
+        $env = [];
+        foreach ($dependencies as $dependency) {
+            $service = $this->env->get($dependency);
+            if (!$service) {
+                return $this->fail(
+                    new LogicException(sprintf(
+                        'applyWithEnv() failed: missing env for dependency %s',
+                        get_debug_type($dependency)
+                    ))
+                );
+            }
+            $env[$dependency] = $service;
+        }
+
+        // Apply function($value, $env)
+        try {
+            try {
+                $newValue = $fn($this->valueOrError, $env);
+            } catch (TypeError $e) {
+                return $this->fail(
+                    new LogicException(sprintf(
+                        'applyWithEnv() callable type error: %s',
+                        $e->getMessage()
+                    ))
+                );
+            }
+        } catch (Throwable $e) {
+            return $this->fail($e);
+        }
+
+        // Function must NOT return a Result
+        if ($newValue instanceof self) {
+            return $this->fail(
+                new LogicException(
+                    'applyWithEnv() callable must return plain value, not a Result. Use bindWithEnv() if you need to return a Result.'
+                )
+            );
+        }
+
+        // Merge writers (applicative semantics + your design)
+        $mergedWriter = $this->writer->merge($fnResult->writer());
+
+        // Return new Result with merged writer and same env
+        return new self(
+            ok: true,
+            valueOrError: $newValue,
+            env: $this->env,
+            writer: $mergedWriter
+        );
+    }
+
+
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
     //  (ex: $result->inspectOk(fn($value) => var_dump($value));
@@ -353,7 +503,7 @@ final readonly class Result implements IResult
      * @param callable $fn The function to call as default.
      * @return mixed The plain value or the function to call as default.
      */
-    public function unwrapElse(callable $fn): mixed
+    public function unwrapOrElse(callable $fn): mixed
     {
         return $this->isOk() ? $this->valueOrError : $fn();
     }
@@ -411,7 +561,7 @@ final readonly class Result implements IResult
         return $this->writer;
     }
 
-    public function writeTo(string $channel, mixed $value): IResult
+    public function writeTo(string $channel, mixed $value): Result
     {
         $writer = $this->writer->write($channel, $value);
         return new self(
@@ -426,7 +576,6 @@ final readonly class Result implements IResult
     {
         return $this->writer->get($channel);
     }
-
 
     private function fail(Throwable $error): self
     {

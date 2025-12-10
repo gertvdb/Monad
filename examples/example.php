@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use Gertvdb\Monad\Result;
-use Gertvdb\Monad\Trace\TraceException;
-use Gertvdb\Monad\Trace\Traces;
 
 /**
  * Functional wrapper around Json serializer.
@@ -14,17 +12,16 @@ final class Example
     public function __invoke(Result $result): Result
     {
         return $result->bind(
-            function (object $object) use ($result) {
+            function (object $object) {
                 try {
                     $first = $object->item->first;
+
                     $extra = new Dep();
-                    $result = $result->withEnv($extra);
-
-                    return $result->lift($first);
+                    $result = Result::ok($first);
+                    return $result->withEnv($extra);
                 } catch (Throwable $e) {
-
-                    $result = $result->writeTo(Traces::class, TraceException::from($e, time()));
-                    return $result->fail($e);
+                    $result = Result::err($e);
+                    return $result->writeTo(Traces::class, 'error');
                 }
             }
         );
@@ -33,6 +30,11 @@ final class Example
 
 
 final class Dep
+{
+    public function __construct(){}
+}
+
+final class Traces
 {
     public function __construct(){}
 }

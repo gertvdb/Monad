@@ -14,7 +14,7 @@ use LogicException;
 use Traversable;
 use TypeError;
 
-final class ListResult implements IResult, IteratorAggregate, Countable
+final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Countable
 {
     /** @var Result[] */
     private array $items;
@@ -58,9 +58,14 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     // ------------------------------------------------------------
     public function add(mixed $value): self
     {
+
         $newItem = ($value instanceof Result)
             ? $value
-            : Result::ok($value, $this->env, Writer::empty());
+            : Result::ok($value);
+
+        // Pass env down...
+        $newEnv = $this->env;
+        $newItem = $newItem->withEnv(...$newEnv->all());
 
         return new self(
             allOk: $this->allOk && $newItem->isOk(),
@@ -77,6 +82,7 @@ final class ListResult implements IResult, IteratorAggregate, Countable
     {
         return $this->allOk;
     }
+
     public function isErr(): bool
     {
         return !$this->allOk;
@@ -116,21 +122,29 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 $writer = $writer->merge($res->writer());
 
                 if (!$res->isOk()) {
-                    $out[] = Result::err($res->error(), $this->env, $writer);
+                    $out[] = $res->bind(function () use ($res) {
+                        return Result::err(
+                            error: $res->error()
+                        );
+                    });
                 } else {
-                    $out[] = Result::ok($res->value(), $this->env, $writer);
+                    $out[] = $res->bind(function () use ($res) {
+                        return Result::ok(
+                            value: $res->value()
+                        );
+                    });
                 }
                 continue;
             }
 
-            $out[] = Result::err(
-                new LogicException(sprintf(
-                    'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapWithEnv() instead.',
-                    get_debug_type($res)
-                )),
-                $this->env,
-                $writer
-            );
+            $out[] = $res->bind(function () use ($res) {
+                return Result::err(
+                    error: new LogicException(sprintf(
+                        'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapWithEnv() instead.',
+                        get_debug_type($res)
+                    ))
+                );
+            });
         }
 
         $allOk = count($out) === 0 || array_reduce(
@@ -146,7 +160,6 @@ final class ListResult implements IResult, IteratorAggregate, Countable
             writer: $writer
         );
     }
-
 
     public function bindWithEnv(array $dependencies, callable $fn): self
     {
@@ -208,23 +221,18 @@ final class ListResult implements IResult, IteratorAggregate, Countable
 
             if ($res instanceof Result) {
                 $writer = $writer->merge($res->writer());
-
-                if (!$res->isOk()) {
-                    $out[] = Result::err($res->error(), $this->env, $writer);
-                } else {
-                    $out[] = Result::ok($res->value(), $this->env, $writer);
-                }
+                $out[] = $res;
                 continue;
             }
 
-            $out[] = Result::err(
-                new LogicException(sprintf(
-                    'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapWithEnv() instead.',
-                    get_debug_type($res)
-                )),
-                $this->env,
-                $writer
-            );
+            $out[] = $item->bind(function () use ($res) {
+                return Result::err(
+                    error: new LogicException(sprintf(
+                        'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. If you want to return a plain value use mapWithEnv() instead.',
+                        get_debug_type($res)
+                    ))
+                );
+            });
         }
 
         $allOk = count($out) === 0 || array_reduce(
@@ -275,12 +283,20 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 }
 
                 // Wrap plain value in Result::ok() and merge writer
-                $newItem = Result::ok($res, $this->env, $item->writer());
+                $newItem = $item->bind(function () use ($res) {
+                    return Result::ok(
+                        value: $res
+                    );
+                });
                 $writer = $writer->merge($item->writer());
 
                 $out[] = $newItem;
             } catch (\Throwable $e) {
-                $newItem = Result::err($e, $this->env, $item->writer());
+                $newItem = $item->bind(function () use ($e) {
+                    return Result::err(
+                        error: $e
+                    );
+                });
                 $writer = $writer->merge($item->writer());
                 $out[] = $newItem;
             }
@@ -364,12 +380,20 @@ final class ListResult implements IResult, IteratorAggregate, Countable
                 }
 
                 // Wrap plain value in Result::ok() and merge writer
-                $newItem = Result::ok($res, $this->env, $item->writer());
+                $newItem = $item->bind(function () use ($res) {
+                    return Result::ok(
+                        value: $res
+                    );
+                });
                 $writer = $writer->merge($item->writer());
 
                 $out[] = $newItem;
             } catch (\Throwable $e) {
-                $newItem = Result::err($e, $this->env, $item->writer());
+                $newItem = $item->bind(function () use ($e) {
+                    return Result::err(
+                        error: $e
+                    );
+                });
                 $writer = $writer->merge($item->writer());
                 $out[] = $newItem;
             }
