@@ -9,7 +9,6 @@ use Gertvdb\Monad\Writer\IWriter;
 
 interface IResult extends IMonad
 {
-
     // ------------------------------------------------------------
     //  Basic state
     // ------------------------------------------------------------
@@ -21,5 +20,4 @@ interface IResult extends IMonad
     // ------------------------------------------------------------
     public function inspectOk(callable $fn): self;
     public function inspectErr(callable $fn): self;
-
 }

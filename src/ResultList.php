@@ -58,7 +58,6 @@ final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Co
     // ------------------------------------------------------------
     public function add(mixed $value): self
     {
-
         $newItem = ($value instanceof Result)
             ? $value
             : Result::ok($value);

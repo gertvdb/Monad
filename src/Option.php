@@ -36,7 +36,8 @@ final class Option implements IMonad, IComposedMonad
         );
     }
 
-    public static function none(): self {
+    public static function none(): self
+    {
         return new self(
             hasValue: false,
             valueOrNull: null,

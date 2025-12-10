@@ -9,7 +9,6 @@ use Gertvdb\Monad\Writer\IWriter;
 
 interface IComposedMonad extends IMonad
 {
-
     // ------------------------------------------------------------
     //  Env (Reader)
     // ------------------------------------------------------------
