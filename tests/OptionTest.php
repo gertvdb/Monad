@@ -86,7 +86,12 @@ final class OptionTest extends TestCase
 
     public function testWithEnvAndMapWithEnvAndBindWithEnv(): void
     {
-        $dep = new class() { public function inc(int $v): int { return $v + 1; } };
+        $dep = new class() {
+            public function inc(int $v): int
+            {
+                return $v + 1;
+            }
+        };
 
         $start = Option::some(1)->withEnv($dep);
 
@@ -119,7 +124,9 @@ final class OptionTest extends TestCase
     {
         $collector = [];
         $some = Option::some('a')
-            ->inspectSome(function ($v) use (&$collector) { $collector[] = $v; })
+            ->inspectSome(function ($v) use (&$collector) {
+                $collector[] = $v;
+            })
             ->writeTo('log', 'first')
             ->map(fn ($v) => strtoupper($v))
             ->writeTo('log', 'second');

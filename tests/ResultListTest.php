@@ -68,7 +68,12 @@ final class ResultListTest extends TestCase
 
     public function testBindWithEnvAndMapWithEnv(): void
     {
-        $dep = new class() { public function inc(int $v): int { return $v + 1; } };
+        $dep = new class() {
+            public function inc(int $v): int
+            {
+                return $v + 1;
+            }
+        };
         $cls = get_class($dep);
 
         $start = ResultList::of([1, 2])->withEnv($dep);
@@ -108,8 +113,12 @@ final class ResultListTest extends TestCase
         $seen = [];
         $err = Result::err('bad');
         $list2 = ResultList::of([$a, $err]);
-        $list2->inspectOk(function ($v) use (&$seen) { $seen[] = $v; })
-              ->inspectErr(function ($e) use (&$seen) { $seen[] = $e; });
+        $list2->inspectOk(function ($v) use (&$seen) {
+            $seen[] = $v;
+        })
+              ->inspectErr(function ($e) use (&$seen) {
+                  $seen[] = $e;
+              });
         self::assertCount(2, $seen);
         self::assertSame('a', $seen[0]);
         self::assertInstanceOf(\Throwable::class, $seen[1]);
