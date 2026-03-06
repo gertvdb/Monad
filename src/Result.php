@@ -7,13 +7,19 @@ namespace Gertvdb\Monad;
 use Exception;
 use Gertvdb\Monad\Env\Env;
 use Gertvdb\Monad\Env\IEnv;
-use Gertvdb\Monad\Writer\IWriter;
+use Gertvdb\Monad\Trace\ITrace;use Gertvdb\Monad\Trace\ITraces;use Gertvdb\Monad\Trace\TraceCollection;use Gertvdb\Monad\Writer\IWriter;
 use Gertvdb\Monad\Writer\Writer;
 use LogicException;
 use Stringable;
 use Throwable;
 use TypeError;
 
+/**
+ * Result monad representing either success (Ok) with a value or failure (Err) with a throwable.
+ *
+ * Provides rich composition primitives (bind/map), environment-aware operations, and a writer
+ * to accumulate side-effects such as traces or audit logs.
+ */
 final readonly class Result implements IResult, IComposedMonad
 {
     /**
@@ -76,7 +82,6 @@ final readonly class Result implements IResult, IComposedMonad
     //  Needs to return a Result inside the bind.
     //  Change value with with() to keep context.
     // ------------------------------------------------------------
-
     public function bind(callable $fn): self
     {
         if ($this->isErr()) {
@@ -127,7 +132,7 @@ final readonly class Result implements IResult, IComposedMonad
             return $this; // already an error
         }
 
-        $env = [];
+        $resolved = [];
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
@@ -138,12 +143,12 @@ final readonly class Result implements IResult, IComposedMonad
                     ))
                 );
             }
-            $env[$dependency] = $service;
+            $resolved[] = $service;
         }
 
         try {
             try {
-                $res = $fn($this->valueOrError, $env);
+                $res = $fn($this->valueOrError, ...$resolved);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
                 return $this->fail(
@@ -182,7 +187,6 @@ final readonly class Result implements IResult, IComposedMonad
     //  map | mapWithEnv
     //  Needs to return the modified value inside the bind.
     // ------------------------------------------------------------
-
     public function map(callable $fn): self
     {
         if ($this->isErr()) {
@@ -231,7 +235,7 @@ final readonly class Result implements IResult, IComposedMonad
             return $this;
         }
 
-        $env = [];
+        $resolved = [];
         foreach ($dependencies as $dependency) {
             $service = $this->env->get($dependency);
             if (!$service) {
@@ -242,12 +246,12 @@ final readonly class Result implements IResult, IComposedMonad
                     ))
                 );
             }
-            $env[$dependency] = $service;
+            $resolved[] = $service;
         }
 
         try {
             try {
-                $res = $fn($this->valueOrError, $env);
+                $res = $fn($this->valueOrError, ...$resolved);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
                 return $this->fail(
@@ -286,7 +290,6 @@ final readonly class Result implements IResult, IComposedMonad
     //  apply |
     // Takes a Result<callable> and applies it to this Result<T>
     // ------------------------------------------------------------
-
     public function apply(self $fnResult): self
     {
         // If either side is an Err → short-circuit with the first error
@@ -358,7 +361,7 @@ final readonly class Result implements IResult, IComposedMonad
     //  - Env is passed but never changed
     //  - Writers merge (same as bind)
     // ------------------------------------------------------------
-    public function applyWithEnv(self $fnResult, array $dependencies = []): self
+    public function applyWithEnv(array $dependencies, self $fnResult): self
     {
         // Short-circuit on existing error
         if ($this->isErr()) {
@@ -435,9 +438,7 @@ final readonly class Result implements IResult, IComposedMonad
 
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
-    //  (ex: $result->inspectOk(fn($value) => var_dump($value));
     // ------------------------------------------------------------
-
     public function inspectOk(callable $fn): self
     {
         if ($this->isOk()) {
@@ -458,7 +459,6 @@ final readonly class Result implements IResult, IComposedMonad
     // ------------------------------------------------------------
     //  Unwrap | Fold
     // ------------------------------------------------------------
-
     public function fold(callable $onOk, callable $onErr): mixed
     {
         return $this->isOk()
@@ -577,6 +577,7 @@ final readonly class Result implements IResult, IComposedMonad
         return $this->writer->get($channel);
     }
 
+
     private function fail(Throwable $error): self
     {
         return new self(
@@ -586,4 +587,20 @@ final readonly class Result implements IResult, IComposedMonad
             writer: $this->writer,
         );
     }
+
+    // Shortcut for standardized tracing
+    public function withTrace(ITrace $trace): self
+    {
+        return $this->writeTo(ITraces::class, $trace);
+    }
+
+    public function traces(): ITraces
+    {
+        $traces = TraceCollection::empty();
+        foreach ($this->writerOutput(ITraces::class) as $trace) {
+            $traces = $traces->add($trace);
+        }
+        return $traces;
+    }
+
 }

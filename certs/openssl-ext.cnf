@@ -1,0 +1,11 @@
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+authorityKeyIdentifier = keyid,issuer
+subjectKeyIdentifier = hash
+
+[alt_names]
+DNS.1 = monad.test
+

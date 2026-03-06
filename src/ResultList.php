@@ -7,13 +7,34 @@ namespace Gertvdb\Monad;
 use Countable;
 use Gertvdb\Monad\Env\Env;
 use Gertvdb\Monad\Env\IEnv;
-use Gertvdb\Monad\Writer\IWriter;
+use Gertvdb\Monad\Trace\ITrace;use Gertvdb\Monad\Trace\ITraces;use Gertvdb\Monad\Trace\TraceCollection;use Gertvdb\Monad\Writer\IWriter;
 use Gertvdb\Monad\Writer\Writer;
 use IteratorAggregate;
 use LogicException;
 use Traversable;
 use TypeError;
 
+/**
+ * A list of {@see Result} that composes as a single monad.
+ *
+ * Accumulates writer outputs and preserves env across items. Useful when you
+ * need to process a batch while keeping success/failure per item.
+ *
+ * @example Construct and iterate
+ * ```php
+ * use Gertvdb\Monad\ResultList;
+ * use Gertvdb\Monad\Result;
+ *
+ * $list = ResultList::of([1, 2, 3])
+ *     ->bind(fn(int $i) => Result::ok($i * 2));
+ *
+ * foreach ($list as $idx => $res) {
+ *     if ($res->isOk()) {
+ *         // ...
+ *     }
+ * }
+ * ```
+ */
 final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Countable
 {
     /** @var Result[] */
@@ -542,5 +563,20 @@ final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Co
     public function count(): int
     {
         return count($this->items);
+    }
+
+    // Shortcut for standardized tracing
+    public function withTrace(ITrace $trace): self
+    {
+        return $this->writeTo(ITraces::class, $trace);
+    }
+
+    public function traces(): ITraces
+    {
+        $traces = TraceCollection::empty();
+        foreach ($this->writerOutput(ITraces::class) as $trace) {
+            $traces = $traces->add($trace);
+        }
+        return $traces;
     }
 }

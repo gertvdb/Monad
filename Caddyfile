@@ -1,0 +1,25 @@
+monad.test {
+    log
+    encode zstd br gzip
+    tls ./certs/monad.test.crt ./certs/monad.test.key
+
+    root * ./examples
+
+    request_header X-Sendfile-Type x-accel-redirect
+    request_header X-Accel-Mapping ../private-files=/private-files
+
+    intercept {
+                  @sendfile header X-Accel-Redirect *
+                  handle_response @sendfile {
+                                                root * private-files/
+                                                rewrite * {resp.header.X-Accel-Redirect}
+                                                method * GET
+                                                header -X-Accel-Redirect
+                                                file_server
+                                            }
+              }
+
+    php_server {
+                   worker ./examples/index.php
+               }
+}

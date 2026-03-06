@@ -6,12 +6,29 @@ namespace Gertvdb\Monad;
 
 use Gertvdb\Monad\Env\Env;
 use Gertvdb\Monad\Env\IEnv;
-use Gertvdb\Monad\Writer\IWriter;
+use Gertvdb\Monad\Trace\ITrace;use Gertvdb\Monad\Trace\ITraces;use Gertvdb\Monad\Trace\TraceCollection;use Gertvdb\Monad\Writer\IWriter;
 use Gertvdb\Monad\Writer\Writer;
 use Throwable;
 use TypeError;
 use ValueError;
 
+/**
+ * Optional value monad similar to Rust's Option.
+ *
+ * Represents either Some(value) or None. Provides safe composition to avoid
+ * null checks scattered across the codebase.
+ *
+ * @example Basic usage
+ * ```php
+ * use Gertvdb\Monad\Option;
+ *
+ * $userName = Option::some('Alice')
+ *     ->map(fn(string $s) => strtoupper($s))
+ *     ->unwrap(); // 'ALICE'
+ *
+ * $none = Option::none()->map(fn($v) => 1); // still None
+ * ```
+ */
 final class Option implements IMonad, IComposedMonad
 {
     private function __construct(
@@ -308,6 +325,21 @@ final class Option implements IMonad, IComposedMonad
     public function writerOutput(string $channel): array
     {
         return $this->writer->get($channel);
+    }
+
+    // Shortcut for standardized tracing
+    public function withTrace(ITrace $trace): self
+    {
+        return $this->writeTo(ITraces::class, $trace);
+    }
+
+    public function traces(): ITraces
+    {
+        $traces = TraceCollection::empty();
+        foreach ($this->writerOutput(ITraces::class) as $trace) {
+            $traces = $traces->add($trace);
+        }
+        return $traces;
     }
 
     private function fail(): self
