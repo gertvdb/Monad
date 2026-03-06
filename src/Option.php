@@ -6,7 +6,10 @@ namespace Gertvdb\Monad;
 
 use Gertvdb\Monad\Env\Env;
 use Gertvdb\Monad\Env\IEnv;
-use Gertvdb\Monad\Trace\ITrace;use Gertvdb\Monad\Trace\ITraces;use Gertvdb\Monad\Trace\TraceCollection;use Gertvdb\Monad\Writer\IWriter;
+use Gertvdb\Monad\Trace\ITrace;
+use Gertvdb\Monad\Trace\ITraces;
+use Gertvdb\Monad\Trace\TraceCollection;
+use Gertvdb\Monad\Writer\IWriter;
 use Gertvdb\Monad\Writer\Writer;
 use Throwable;
 use TypeError;
