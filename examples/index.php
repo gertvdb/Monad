@@ -106,12 +106,12 @@ frankenphp_handle_request(static function (){
     /** @var Result $result */
     $result = pipe(
         Result::ok('Hello from FrankenPHP worker'),
-        static fn (Result $r) => (new ExampleBind())($r),
-        static fn (Result $r) => (new ExampleMap())($r),
+        new ExampleBind(),
+        new ExampleMap(),
         static fn (Result $r) => $r->withEnv($capitalize),
-        static fn (Result $r) => (new ExampleBindWithEnv())($r),
+        new ExampleBindWithEnv(),
         static fn (Result $r) => $r->withEnv($lowercase),
-        static fn (Result $r) => (new ExampleMapWithEnv())($r),
+        new ExampleMapWithEnv(),
     );
 
     var_dump($result->traces());
