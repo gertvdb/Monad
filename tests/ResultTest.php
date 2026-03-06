@@ -107,8 +107,12 @@ final class ResultTest extends TestCase
 
         // inspectOk/inspectErr side effects
         $seen = [];
-        Result::ok(5)->inspectOk(function ($v) use (&$seen) { $seen[] = $v; });
-        Result::err('bad')->inspectErr(function ($e) use (&$seen) { $seen[] = $e; });
+        Result::ok(5)->inspectOk(function ($v) use (&$seen) {
+            $seen[] = $v;
+        });
+        Result::err('bad')->inspectErr(function ($e) use (&$seen) {
+            $seen[] = $e;
+        });
         self::assertCount(2, $seen);
         self::assertSame(5, $seen[0]);
         self::assertInstanceOf(\Throwable::class, $seen[1]);
@@ -116,7 +120,12 @@ final class ResultTest extends TestCase
 
     public function testWithEnvAndMapWithEnvAndBindWithEnv(): void
     {
-        $dep = new class() { public function inc(int $v): int { return $v + 1; } };
+        $dep = new class() {
+            public function inc(int $v): int
+            {
+                return $v + 1;
+            }
+        };
         $start = Result::ok(1)->withEnv($dep);
         self::assertTrue($start->isOk());
 
@@ -191,7 +200,12 @@ final class ResultTest extends TestCase
 
     public function testApplyWithEnv(): void
     {
-        $dep = new class() { public function add(int $v, int $w): int { return $v + $w; } };
+        $dep = new class() {
+            public function add(int $v, int $w): int
+            {
+                return $v + $w;
+            }
+        };
         $envRes = Result::ok(10)->withEnv($dep)->writeTo('log', 'v');
         $fnRes = Result::ok(function (int $v, array $env) use ($dep) {
             $svc = $env[get_class($dep)];

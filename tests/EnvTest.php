@@ -14,7 +14,8 @@ final class EnvTest extends TestCase
         $env = Env::empty();
         self::assertSame([], $env->all());
 
-        $dep = new class() {};
+        $dep = new class() {
+        };
         $env2 = $env->with($dep);
         self::assertNotSame($env, $env2, 'immutable');
         self::assertArrayHasKey(get_class($dep), $env2->all());
@@ -23,7 +24,8 @@ final class EnvTest extends TestCase
 
     public function testReadAndGet(): void
     {
-        $dep = new class() {};
+        $dep = new class() {
+        };
         $env = Env::empty()->with($dep);
 
         self::assertSame($dep, $env->read(get_class($dep)));
@@ -35,8 +37,12 @@ final class EnvTest extends TestCase
 
     public function testLocalAndMerge(): void
     {
-        $a = new class() { public int $v = 1; };
-        $b = new class() { public int $w = 2; };
+        $a = new class() {
+            public int $v = 1;
+        };
+        $b = new class() {
+            public int $w = 2;
+        };
 
         $env1 = new Env([get_class($a) => $a]);
         $env2 = new Env([get_class($b) => $b]);
