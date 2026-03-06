@@ -126,37 +126,43 @@ final class ResultTest extends TestCase
                 return $v + 1;
             }
         };
+
         $start = Result::ok(1)->withEnv($dep);
         self::assertTrue($start->isOk());
 
+        $depClass = get_class($dep);
+
         // mapWithEnv returns plain value
-        $mapped = $start->mapWithEnv([get_class($dep)], function (int $v, array $env) use ($dep) {
-            $svc = $env[get_class($dep)];
-            return $svc->inc($v);
+        $mapped = $start->mapWithEnv([$depClass], function (int $v, $dep) {
+            return $dep->inc($v);
         });
+
         self::assertTrue($mapped->isOk());
         self::assertSame(2, $mapped->unwrap());
 
         // returning Result in mapWithEnv should fail
-        $badMapEnv = $start->mapWithEnv([get_class($dep)], function (int $v, array $env) {
+        $badMapEnv = $start->mapWithEnv([$depClass], function (int $v, $dep) {
             return Result::ok($v);
         });
+
         self::assertTrue($badMapEnv->isErr());
 
         // bindWithEnv returns a Result
-        $bound = $start->bindWithEnv([get_class($dep)], function (int $v, array $env) use ($dep) {
-            $svc = $env[get_class($dep)];
-            return Result::ok($svc->inc($v));
+        $bound = $start->bindWithEnv([$depClass], function (int $v, $dep) {
+            return Result::ok($dep->inc($v));
         });
+
         self::assertTrue($bound->isOk());
         self::assertSame(2, $bound->unwrap());
 
         // missing dependency → Err
-        $missing = $start->mapWithEnv([\stdClass::class], fn ($v, $env) => $v);
+        $missing = $start->mapWithEnv([\stdClass::class], fn ($v, $dep) => $v);
+
         self::assertTrue($missing->isErr());
         self::assertInstanceOf(LogicException::class, $missing->unwrapErr());
 
-        $missing2 = $start->bindWithEnv([\stdClass::class], fn ($v, $env) => Result::ok($v));
+        $missing2 = $start->bindWithEnv([\stdClass::class], fn ($v, $dep) => Result::ok($v));
+
         self::assertTrue($missing2->isErr());
         self::assertInstanceOf(LogicException::class, $missing2->unwrapErr());
     }
@@ -206,35 +212,37 @@ final class ResultTest extends TestCase
                 return $v + $w;
             }
         };
+
         $envRes = Result::ok(10)->withEnv($dep)->writeTo('log', 'v');
-        $fnRes = Result::ok(function (int $v, array $env) use ($dep) {
-            $svc = $env[get_class($dep)];
-            return $svc->add($v, 5);
+
+        $fnRes = Result::ok(function (int $v) use ($dep) {
+            return $dep->add($v, 5);
         })->writeTo('log', 'f');
 
-        $applied = $envRes->applyWithEnv($fnRes, [get_class($dep)]);
+        $applied = $envRes->applyWithEnv([get_class($dep)], $fnRes);
         self::assertTrue($applied->isOk());
         self::assertSame(15, $applied->unwrap());
         self::assertSame(['v', 'f'], $applied->writerOutput('log'));
 
         // Non-callable inside fnResult
-        $bad = $envRes->applyWithEnv(Result::ok(123));
+        $bad = $envRes->applyWithEnv([], Result::ok(123));
         self::assertTrue($bad->isErr());
         self::assertInstanceOf(LogicException::class, $bad->unwrapErr());
 
         // Callable returns Result -> error
-        $badReturn = $envRes->applyWithEnv(Result::ok(fn ($v, $env) => Result::ok($v)));
+        $badReturn = $envRes->applyWithEnv([], Result::ok(fn ($v, $env) => Result::ok($v)));
         self::assertTrue($badReturn->isErr());
 
         // Missing dependency
-        $missing = $envRes->applyWithEnv($fnRes, [\stdClass::class]);
+        $missing = $envRes->applyWithEnv([\stdClass::class], $fnRes);
         self::assertTrue($missing->isErr());
         self::assertInstanceOf(LogicException::class, $missing->unwrapErr());
 
         // Short circuit on errors
-        $short1 = Result::err('x')->applyWithEnv($fnRes, []);
+        $short1 = Result::err('x')->applyWithEnv([], $fnRes);
         self::assertTrue($short1->isErr());
-        $short2 = $envRes->applyWithEnv(Result::err('y'), []);
+
+        $short2 = $envRes->applyWithEnv([], Result::err('y'));
         self::assertTrue($short2->isErr());
     }
 }

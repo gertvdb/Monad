@@ -19,21 +19,6 @@ use TypeError;
  *
  * Accumulates writer outputs and preserves env across items. Useful when you
  * need to process a batch while keeping success/failure per item.
- *
- * @example Construct and iterate
- * ```php
- * use Gertvdb\Monad\ResultList;
- * use Gertvdb\Monad\Result;
- *
- * $list = ResultList::of([1, 2, 3])
- *     ->bind(fn(int $i) => Result::ok($i * 2));
- *
- * foreach ($list as $idx => $res) {
- *     if ($res->isOk()) {
- *         // ...
- *     }
- * }
- * ```
  */
 final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Countable
 {
