@@ -398,13 +398,13 @@ final readonly class Result implements IResult, IComposedMonad
                     ))
                 );
             }
-            $env[$dependency] = $service;
+            $env[] = $service;
         }
 
         // Apply function($value, $env)
         try {
             try {
-                $newValue = $fn($this->valueOrError, $env);
+                $newValue = $fn($this->valueOrError, ...$env);
             } catch (TypeError $e) {
                 return $this->fail(
                     new LogicException(sprintf(

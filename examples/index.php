@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use Gertvdb\Monad\Result;use Gertvdb\Monad\Trace\TraceCommon;
+use Gertvdb\Monad\Result;
+use Gertvdb\Monad\Trace\TraceCommon;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -94,6 +95,20 @@ final class ExampleMapWithEnv
     }
 }
 
+final class ExampleApplyWithEnv
+{
+    public function __invoke(Result $result): Result
+    {
+        return $result->applyWithEnv(
+            [LowerCase::class],
+            Result::ok(
+                static fn (string $string, LowerCase $lowerCase) =>
+                $lowerCase->doIt($string)
+            )
+        )->withTrace(TraceCommon::from('ExampleApplyWithEnv', time()));
+    }
+}
+
 ignore_user_abort(true);
 
 frankenphp_handle_request(static function (){
@@ -112,6 +127,7 @@ frankenphp_handle_request(static function (){
         new ExampleBindWithEnv(),
         static fn (Result $r) => $r->withEnv($lowercase),
         new ExampleMapWithEnv(),
+        new ExampleApplyWithEnv()
     );
 
     var_dump($result->traces());
