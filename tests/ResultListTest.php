@@ -78,16 +78,15 @@ final class ResultListTest extends TestCase
 
         $start = ResultList::of([1, 2])->withEnv($dep);
 
-        $mapped = $start->mapWithEnv([$cls], function (int $v, array $env) use ($cls) {
-            $svc = $env[$cls];
-            return $svc->inc($v);
+        $mapped = $start->mapWithEnv([$cls], function (int $v, $count, $total, $dep) {
+            return $dep->inc($v);
         });
+
         self::assertTrue($mapped->isOk());
         self::assertSame([2, 3], $mapped->unwrap());
 
-        $bound = $start->bindWithEnv([$cls], function (int $v, array $env) use ($cls) {
-            $svc = $env[$cls];
-            return Result::ok($svc->inc($v));
+        $bound = $start->bindWithEnv([$cls], function (int $v, $count, $total, $dep) use ($cls) {
+            return Result::ok($dep->inc($v));
         });
         self::assertTrue($bound->isOk());
         self::assertSame([2, 3], $bound->unwrap());

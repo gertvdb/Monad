@@ -123,11 +123,10 @@ frankenphp_handle_request(static function (){
         Result::ok('Hello from FrankenPHP worker'),
         new ExampleBind(),
         new ExampleMap(),
-        static fn (Result $r) => $r->withEnv($capitalize),
+        static fn (Result $r) => $r->withEnv($capitalize, $lowercase),
         new ExampleBindWithEnv(),
-        static fn (Result $r) => $r->withEnv($lowercase),
         new ExampleMapWithEnv(),
-        new ExampleApplyWithEnv()
+        new ExampleApplyWithEnv(),
     );
 
     var_dump($result->traces());

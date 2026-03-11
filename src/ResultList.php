@@ -212,7 +212,7 @@ final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Co
             }
 
             try {
-                $res = $fn($item->value(), $env, $index, $total);
+                $res = $fn($item->value(), $index, $total, ...$env);
             } catch (TypeError $e) {
                 // Catch type mismatches in user callback
                 $out[] = $item->bind(function () use ($e) {
@@ -371,7 +371,7 @@ final class ResultList implements IResult, IComposedMonad, IteratorAggregate, Co
                 // Call user function — user can return plain value
 
                 try {
-                    $res = $fn($item->value(), $env, $index, $total);
+                    $res = $fn($item->value(), $index, $total, ...$env);
                 } catch (TypeError $e) {
                     // Catch type mismatches in user callback
                     $out[] = $item->bind(function () use ($e) {
