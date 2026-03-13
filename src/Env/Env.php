@@ -62,22 +62,32 @@ final class Env implements IEnv
     /**
      * Bind interface → implementation
      */
-    public function withAlias(string $alias, string $implementation): self
+    public function withAlias(string $alias, object|string $implementation): self
     {
         if (!class_exists($alias) && !interface_exists($alias)) {
             throw new LogicException("$alias is not a valid interface or class");
         }
 
-        if (!class_exists($implementation)) {
-            throw new LogicException("$implementation is not a valid class");
+        // Determine implementation class and optionally register object instance
+        $implClass = is_object($implementation) ? $implementation::class : $implementation;
+
+        if (!class_exists($implClass)) {
+            throw new LogicException("$implClass is not a valid class");
         }
 
-        if (!is_subclass_of($implementation, $alias) && $implementation !== $alias) {
-            throw new LogicException("$implementation must extend or implement $alias");
+        if (!is_subclass_of($implClass, $alias) && $implClass !== $alias) {
+            throw new LogicException("$implClass must extend or implement $alias");
         }
 
         $clone = clone $this;
-        $clone->bindings[$alias] = $implementation;
+
+        // If an object instance was provided, register it as a service
+        if (is_object($implementation)) {
+            $clone->items[$implClass] = $implementation;
+        }
+
+        // Bind the alias (interface/abstract) to the concrete implementation class
+        $clone->bindings[$alias] = $implClass;
 
         return $clone;
     }

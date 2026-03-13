@@ -58,7 +58,7 @@ function tag(Result $result, string $tag, object $service): Result
 /**
  * Register an interface or abstract class alias to a concrete implementation.
  */
-function alias(Result $result, string $alias, string $implementation): Result
+function alias(Result $result, string $alias, object|string $implementation): Result
 {
     return $result->withAlias($alias, $implementation);
 }

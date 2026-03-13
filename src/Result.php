@@ -491,7 +491,7 @@ final readonly class Result implements IResult, IComposedMonad
     }
 
 
-    public function withAlias(string $alias, string $implementation): self
+    public function withAlias(string $alias, object|string $implementation): self
     {
         if ($alias === '' || (!interface_exists($alias) && !class_exists($alias))) {
             return $this->fail(
@@ -502,7 +502,9 @@ final readonly class Result implements IResult, IComposedMonad
             );
         }
 
-        if (!class_exists($implementation)) {
+        $implClass = is_object($implementation) ? $implementation::class : $implementation;
+
+        if (!class_exists($implClass)) {
             return $this->fail(
                 error: new TypeError(sprintf(
                     'withAlias() expects a valid implementation class for %s, got %s',
@@ -512,11 +514,11 @@ final readonly class Result implements IResult, IComposedMonad
             );
         }
 
-        if (!is_subclass_of($implementation, $alias) && $implementation !== $alias) {
+        if (!is_subclass_of($implClass, $alias) && $implClass !== $alias) {
             return $this->fail(
                 error: new TypeError(sprintf(
                     'withAlias() expects %s to extend or implement %s',
-                    $implementation,
+                    $implClass,
                     $alias
                 ))
             );

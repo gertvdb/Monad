@@ -30,7 +30,7 @@ interface IEnv
      * $env = $env->withAlias(LanguageInterface::class, Language::class);
      * ```
      */
-    public function withAlias(string $alias, string $implementation): self;
+    public function withAlias(string $alias, object|string $implementation): self;
 
     /**
      * Return a new Env with an factory to create a concrete class.
