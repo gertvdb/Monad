@@ -119,7 +119,7 @@ final readonly class Result implements IResult, IComposedMonad
         return new self(
             ok: $res->isOk(),
             valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
-            env: $this->env,
+            env: $this->env->merge($res->env()),
             writer: $this->writer->merge($res->writer())
         );
     }
