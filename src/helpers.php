@@ -70,3 +70,11 @@ function trace(Result $result, ITrace $trace): Result
 {
     return $result->withTrace($trace);
 }
+
+function pipe(mixed $arg, callable ...$fns): mixed
+{
+    foreach ($fns as $fn) {
+        $arg = $fn($arg);
+    }
+    return $arg;
+}

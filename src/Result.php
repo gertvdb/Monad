@@ -582,6 +582,20 @@ final readonly class Result implements IResult, IComposedMonad
         return $traces;
     }
 
+    /**
+     * Apply a sequence of functions to this Result.
+     *
+     * Each function must take a Result and return a Result.
+     */
+    public function pipe(callable ...$steps): self
+    {
+        $r = $this;
+        foreach ($steps as $step) {
+            $r = $step($r);
+        }
+        return $r;
+    }
+
     private function resolveCallback(callable $fn, array $extraArgs = []): array|self
     {
         try {
