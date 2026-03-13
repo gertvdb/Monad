@@ -35,59 +35,92 @@ interface IComposedMonad extends IMonad
     public function env(): IEnv;
 
     /**
+     * Return a new instance with a replaced env.
+     *
+     * ```
+     * use Gertvdb\Monad\Result;
+     *
+     * $env = Env::empty();
+     * $env = $env->addService($myService);
+     *
+     * $result = Result::ok(new User("John"))
+     *     ->withEnv($env)
+     * ```
+     *
+     * @param IEnv $env Typically a service instance
+     * @return self
+     *
+     */
+    public function withEnv(IEnv $env): self;
+
+
+    /**
      * Return a new instance with a dependency added/replaced in the env.
      *
      * ```
      * use Gertvdb\Monad\Result;
      *
      * $result = Result::ok(new User("John"))
-     *     ->withEnv(new Locale("en"))
+     *     ->withService(new Locale("en"))
      * ```
      *
      * @param object $dependency Typically a service instance
      * @return self
      *
      */
-    public function withEnv(object $dependency): self;
+    public function withService(object $dependency): self;
 
     /**
-     * Bind with access to resolved dependencies from the env.
+     * Return a new instance with multiple dependency added/replaced in the env.
      *
      * ```
      * use Gertvdb\Monad\Result;
      *
      * $result = Result::ok(new User("John"))
-     *     ->withEnv(new Locale("en"))
-     *     ->bindWithEnv(
-     *         [Locale::class],
-     *         fn(User $user, Locale $locale) => Result::ok($user->name . " ({$locale->code})")
-     *     );
+     *     ->withServices(new Locale("en"), new Language())
      * ```
-     *  @param list<class-string> $dependencies
-     *  @param callable $fn function(mixed $value, array $env): self
-     *  @return self
+     *
+     * @param object $dependencies
+     * @return self
+     *
      */
-    public function bindWithEnv(array $dependencies, callable $fn): self;
+    public function withServices(object ...$dependencies): self;
 
     /**
-     * Map with access to resolved dependencies from the env.
+     * Return a new Env with an alias of a interface to a concrete class.
      *
-     *  ```
-     *  use Gertvdb\Monad\Result;
-     *
-     *  $result = Result::ok(new User("John"))
-     *      ->withEnv(new Locale("en"))
-     *      ->mapWithEnv(
-     *          [Locale::class],
-     *          fn(User $user, Locale $locale) => $user->name . " ({$locale->code})"
-     *      );
-     *  ```
-     *
-     * @param list<class-string> $dependencies
-     * @param callable $fn function(mixed $value, array $env): mixed
-     * @return self
+     * ```
+     * $env = $env->withAlias(LanguageInterface::class, Language::class);
+     * ```
      */
-    public function mapWithEnv(array $dependencies, callable $fn): self;
+    public function withAlias(string $alias, string $implementation): self;
+
+    /**
+     * Return a new Env with an factory to create a concrete class.
+     *
+     * ```
+     * $env = $env->withFactory(Database::class, fn () => new Database());
+     * ```
+     */
+    public function withFactory(string $class, callable $factory): self;
+
+    /**
+     * Return a new Env with an param value.
+     *
+     * ```
+     * $env = $env->withParam('host', 'localhost');
+     * ```
+     */
+    public function withParam(string $name, mixed $value): self;
+
+    /**
+     * Return a new Env with a tagged service
+     *
+     * ```
+     * $env = $env->withTag('logger', new Logger());
+     * ```
+     */
+    public function withTag(string $tag, object $service): self;
 
     // ------------------------------------------------------------
     //  Writer

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 use Gertvdb\Monad\Result;
 use Gertvdb\Monad\Trace\TraceCommon;
+use Symfony\Component\HttpFoundation\Request;
+use function Gertvdb\Monad\alias;
+use function Gertvdb\Monad\factory;
+use function Gertvdb\Monad\param;
+use function Gertvdb\Monad\services;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -31,6 +36,13 @@ final class ExampleBind
             }
         );
     }
+}
+
+function exampleMap(Result $result): Result
+{
+    return $result->map(function (string $string, LowerCase $lowerCase) {
+        return $lowerCase->doIt(str_replace('Gert', 'Franken', $string));
+    })->withTrace(TraceCommon::from('exampleMap', time()));
 }
 
 final class ExampleMap
@@ -65,9 +77,8 @@ final class ExampleBindWithEnv
 {
     public function __invoke(Result $result): Result
     {
-        return $result->bindWithEnv(
-            [Capitalize::class],
-            function (string $string, Capitalize $capitalize) {
+        return $result->bind(
+            function (string $string, Capitalize $capitalize, Serialize $serialize) use ($result) {
                 $string = $capitalize->doIt($string) ?? '';
 
                 try {
@@ -86,8 +97,7 @@ final class ExampleMapWithEnv
 {
     public function __invoke(Result $result): Result
     {
-        return $result->mapWithEnv(
-            [LowerCase::class],
+        return $result->map(
             function (string $string, LowerCase $lowercase) {
                 return str_replace('Gert', 'Franken', $lowercase->doIt($string));
             }
@@ -99,8 +109,7 @@ final class ExampleApplyWithEnv
 {
     public function __invoke(Result $result): Result
     {
-        return $result->applyWithEnv(
-            [LowerCase::class],
+        return $result->apply(
             Result::ok(
                 static fn (string $string, LowerCase $lowerCase) =>
                 $lowerCase->doIt($string)
@@ -109,11 +118,48 @@ final class ExampleApplyWithEnv
     }
 }
 
+interface  LoggerInterface {
+    public function log(string $level, string $message): void;
+}
+
+class NullLogger implements LoggerInterface {
+    public function log(string $level, string $message) : void {
+
+    }
+}
+
+class Database {
+    public function __construct(
+        public readonly string $tenant,
+        public readonly LoggerInterface $logger
+    ) {
+
+    }
+}
+
+abstract class Serialize {
+
+    abstract public function serialize(): string;
+}
+
+class JsonSerialize extends Serialize {
+    public function serialize() :string {
+        return 'hallo';
+    }
+}
+
+class Missing {
+}
+
 ignore_user_abort(true);
 
-frankenphp_handle_request(static function (){
+frankenphp_handle_request(static function () {
 
-    header('Content-Type: text/plain');
+    // Tell the browser to render HTML
+    header('Content-Type: text/html; charset=utf-8');
+
+    $request = Request::createFromGlobals();
+    $tenant = $request->query->get('tenant') ?? 'default';
 
     $capitalize = new Capitalize();
     $lowercase = new LowerCase();
@@ -121,23 +167,70 @@ frankenphp_handle_request(static function (){
     /** @var Result $result */
     $result = pipe(
         Result::ok('Hello from FrankenPHP worker'),
+        static fn(Result $r) => param($r, 'tenant', $tenant),
+        static fn(Result $r) => alias($r, LoggerInterface::class, NullLogger::class),
+        static fn(Result $r) => factory($r, Database::class, fn(string $tenant, LoggerInterface $logger) => new Database($tenant, $logger)),
+        static fn(Result $r) => services($r, $capitalize, $lowercase),
+        static fn(Result $r) => alias($r, Serialize::class, JsonSerialize::class),
         new ExampleBind(),
         new ExampleMap(),
-        static fn (Result $r) => $r->withEnv($capitalize, $lowercase),
+        'exampleMap',
         new ExampleBindWithEnv(),
         new ExampleMapWithEnv(),
         new ExampleApplyWithEnv(),
     );
 
-    var_dump($result->traces());
-
     $response = $result->fold(
-        onOk: fn ($value, $env, $writer) => $value,
-        onErr: fn (Throwable $error, $env, $writer) => throw $error,
+        onOk: fn($value, $env, $writer) => sprintf(
+            '<div style="
+            background-color: #dfd;
+            color: #060;
+            padding: 1em;
+            border: 1px solid #090;
+            font-family: monospace;
+            white-space: pre-wrap;
+            line-height: 1.4em;
+        ">
+            <strong>Success:</strong> %s
+        </div>',
+            htmlspecialchars((string)$value, ENT_QUOTES)
+        ),
+        onErr: fn(Throwable $error, $env, $writer) => sprintf(
+            '<div style="
+            background-color: #fdd;
+            color: #900;
+            padding: 1em;
+            border: 1px solid #900;
+            font-family: monospace;
+            white-space: pre-wrap;
+            line-height: 1.4em;
+        ">
+            <strong>Error:</strong> %s
+
+            <strong>Trace:</strong>
+            %s
+        </div>',
+            htmlspecialchars($error->getMessage(), ENT_QUOTES),
+            htmlspecialchars($error->getTraceAsString(), ENT_QUOTES)
+        ),
     );
 
+    echo $response;
 
-
-    echo is_string($response) ? $response : (string) json_encode($response);
-
+    foreach ($result->traces() as $trace) {
+        echo sprintf(
+            '<br/><div style="
+            background-color: #ffed8e;
+            color: #dc7103;
+            padding: 1em;
+            border: 1px solid #ff7d2b;
+            font-family: monospace;
+            white-space: pre-wrap;
+            line-height: 1.4em;
+        ">
+            <strong>Trace:</strong> %s
+        </div><br/>',
+            htmlspecialchars((string)$trace->read(), ENT_QUOTES)
+        );
+    }
 });

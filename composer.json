@@ -23,14 +23,16 @@
         "phpunit/phpunit": "^9.5",
         "phpbench/phpbench": "^1.1",
         "phpstan/phpstan": "^1.9",
-        "symplify/easy-ci": "^11.1",
-        "symplify/easy-coding-standard": "^11.1",
-        "roave/security-advisories": "dev-latest"
+        "roave/security-advisories": "dev-latest",
+        "symfony/http-foundation": "^7.4"
     },
     "autoload": {
         "psr-4": {
             "Gertvdb\\Monad\\": "src"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -39,12 +41,6 @@
         }
     },
     "scripts": {
-        "fix-style": [
-            "vendor/bin/ecs check --config ecs.php --fix"
-        ],
-        "check-style": [
-            "vendor/bin/ecs check --config ecs.php"
-        ],
         "test": [
             "vendor/bin/phpunit --testdox"
         ],

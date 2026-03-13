@@ -18,10 +18,46 @@ interface IEnv
      * Return a new Env with a dependency added or replaced.
      *
      * ```
-     * $env = $env->with(new Translator('en_US'));
+     * $env = $env->withService(new Translator('en_US'));
      * ```
      */
-    public function with(object $dependency): self;
+    public function withService(object $dependency): self;
+
+    /**
+     * Return a new Env with an alias of a interface to a concrete class.
+     *
+     * ```
+     * $env = $env->withAlias(LanguageInterface::class, Language::class);
+     * ```
+     */
+    public function withAlias(string $alias, string $implementation): self;
+
+    /**
+     * Return a new Env with an factory to create a concrete class.
+     *
+     * ```
+     * $env = $env->withFactory(Database::class, fn () => new Database());
+     * ```
+     */
+    public function withFactory(string $class, callable $factory): self;
+
+    /**
+     * Return a new Env with an param value.
+     *
+     * ```
+     * $env = $env->withParam('host', 'localhost');
+     * ```
+     */
+    public function withParam(string $name, mixed $value): self;
+
+    /**
+     * Return a new Env with a tagged service
+     *
+     * ```
+     * $env = $env->withTag('logger', new Logger());
+     * ```
+     */
+    public function withTag(string $tag, object $service): self;
 
     /**
      * Read a required dependency by class.

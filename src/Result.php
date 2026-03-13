@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Gertvdb\Monad;
 
+use Closure;
 use Exception;
 use Gertvdb\Monad\Env\Env;
 use Gertvdb\Monad\Env\IEnv;
@@ -13,6 +14,8 @@ use Gertvdb\Monad\Trace\TraceCollection;
 use Gertvdb\Monad\Writer\IWriter;
 use Gertvdb\Monad\Writer\Writer;
 use LogicException;
+use ReflectionFunction;
+use ReflectionMethod;use ReflectionNamedType;
 use Stringable;
 use Throwable;
 use TypeError;
@@ -81,113 +84,47 @@ final readonly class Result implements IResult, IComposedMonad
     }
 
     // ------------------------------------------------------------
-    //  bind | bindWithEnv
+    //  bind
     //  Needs to return a Result inside the bind.
     //  Change value with with() to keep context.
     // ------------------------------------------------------------
     public function bind(callable $fn): self
     {
         if ($this->isErr()) {
-            return $this; // already an error Result
+            return $this;
+        }
+
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            return $resolved; // early fail
         }
 
         try {
-            try {
-                $res = $fn($this->valueOrError);
-            } catch (TypeError $e) {
-                // Catch type mismatches in user callback
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'bind() type error in callback: %s',
-                        $e->getMessage()
-                    ))
-                );
-            }
-
-            if ($res instanceof self) {
-                // Merge writers instead of replacing
-                $mergedWriter = $this->writer->merge($res->writer());
-                return new self(
-                    ok: $res->isOk(),
-                    valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
-                    env: $this->env,
-                    writer: $mergedWriter
-                );
-            }
-
-            // Callback returned plain value → return an error Result
+            $res = $fn(...$resolved);
+        } catch (TypeError $e) {
             return $this->fail(
-                error: new LogicException(sprintf(
-                    'bind() expected a Result return (T -> Result<U>), but got %s. Use map() for plain values.',
-                    get_debug_type($res)
-                ))
-            );
-        } catch (Throwable $e) {
-            return $this->fail(
-                error: $e
+                error: new LogicException("bind() type error: {$e->getMessage()}")
             );
         }
-    }
 
-    public function bindWithEnv(array $dependencies, callable $fn): self
-    {
-        if ($this->isErr()) {
-            return $this; // already an error
-        }
-
-        $resolved = [];
-        foreach ($dependencies as $dependency) {
-            $service = $this->env->get($dependency);
-            if (!$service) {
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'bindWithEnv() failed: missing env for dependency %s',
-                        get_debug_type($dependency)
-                    ))
-                );
-            }
-            $resolved[] = $service;
-        }
-
-        try {
-            try {
-                $res = $fn($this->valueOrError, ...$resolved);
-            } catch (TypeError $e) {
-                // Catch type mismatches in user callback
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'bindWithEnv() type error in callback: %s',
-                        $e->getMessage()
-                    ))
-                );
-            }
-
-            if ($res instanceof self) {
-                $mergedWriter = $this->writer->merge($res->writer());
-                return new self(
-                    ok: $res->isOk(),
-                    valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
-                    env: $this->env,
-                    writer: $mergedWriter
-                );
-            }
-
-            // Callback returned plain value → return error Result
+        if (!($res instanceof self)) {
             return $this->fail(
-                error: new LogicException(sprintf(
-                    'bindWithEnv() expected a Result return (T -> Result<U>), but got %s. Use mapWithEnv() for plain values.',
-                    get_debug_type($res)
-                ))
-            );
-        } catch (Throwable $e) {
-            return $this->fail(
-                error: $e
+                error: new LogicException(
+                    "bind() expected Result return, got plain value. Use map() instead."
+                )
             );
         }
+
+        return new self(
+            ok: $res->isOk(),
+            valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
+            env: $this->env,
+            writer: $this->writer->merge($res->writer())
+        );
     }
 
     // ------------------------------------------------------------
-    //  map | mapWithEnv
+    //  map
     //  Needs to return the modified value inside the bind.
     // ------------------------------------------------------------
     public function map(callable $fn): self
@@ -196,98 +133,34 @@ final readonly class Result implements IResult, IComposedMonad
             return $this;
         }
 
-        try {
-            try {
-                $res = $fn($this->valueOrError);
-            } catch (TypeError $e) {
-                // Catch type mismatches in user callback
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'map() type error in callback: %s',
-                        $e->getMessage()
-                    ))
-                );
-            }
-
-            if ($res instanceof self) {
-                // Error: map should return plain value, not Result
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'map() expected a plain value (T -> U), but got %s. Use bind() if you want to return a Result.',
-                        get_debug_type($res)
-                    ))
-                );
-            }
-
-            return new self(
-                ok: true,
-                valueOrError: $res,
-                env: $this->env,
-                writer: $this->writer
-            );
-        } catch (Throwable $e) {
-            return $this->fail(
-                error: $e
-            );
-        }
-    }
-
-    public function mapWithEnv(array $dependencies, callable $fn): self
-    {
-        if ($this->isErr()) {
-            return $this;
-        }
-
-        $resolved = [];
-        foreach ($dependencies as $dependency) {
-            $service = $this->env->get($dependency);
-            if (!$service) {
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'mapWithEnv() failed: missing env for dependency %s',
-                        get_debug_type($dependency)
-                    ))
-                );
-            }
-            $resolved[] = $service;
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            return $resolved; // early fail
         }
 
         try {
-            try {
-                $res = $fn($this->valueOrError, ...$resolved);
-            } catch (TypeError $e) {
-                // Catch type mismatches in user callback
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'mapWithEnv() type error in callback: %s',
-                        $e->getMessage()
-                    ))
-                );
-            }
-
-            if ($res instanceof self) {
-                return $this->fail(
-                    error: new LogicException(sprintf(
-                        'mapWithEnv() expected a plain value (T -> U), but got %s. Use bindWithEnv() if you want to return a Result.',
-                        get_debug_type($res)
-                    ))
-                );
-            }
-
-            // Wrap plain value in Result, preserve writer
-            return new self(
-                ok: true,
-                valueOrError: $res,
-                env: $this->env,
-                writer: $this->writer
-            );
-        } catch (Throwable $e) {
+            $res = $fn(...$resolved);
+        } catch (TypeError $e) {
             return $this->fail(
-                error: $e
+                error: new LogicException("map() type error: {$e->getMessage()}")
             );
         }
-    }
 
+        if ($res instanceof self) {
+            return $this->fail(
+                error: new LogicException(
+                    "map() expected plain value, got Result. Use bind() instead."
+                )
+            );
+        }
+
+        return new self(
+            ok: true,
+            valueOrError: $res,
+            env: $this->env,
+            writer: $this->writer
+        );
+    }
 
     // ------------------------------------------------------------
     //  apply |
@@ -295,166 +168,73 @@ final readonly class Result implements IResult, IComposedMonad
     // ------------------------------------------------------------
     public function apply(self $fnResult): self
     {
-        // If either side is an Err → short-circuit with the first error
-        if ($this->isErr()) {
-            return $this;
-        }
-        if ($fnResult->isErr()) {
-            return $fnResult;
-        }
+        if ($this->isErr()) return $this;
+        if ($fnResult->isErr()) return $fnResult;
 
-        // Extract function (ensure it's callable)
         $fn = $fnResult->unwrap();
         if (!is_callable($fn)) {
-            return $this->fail(
-                new LogicException(sprintf(
-                    'apply() expects Result<callable>, got %s',
-                    get_debug_type($fn)
-                ))
-            );
+            return $this->fail(new LogicException("apply() expects Result<callable>"));
         }
 
-        // Apply function safely
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) return $resolved;
+
         try {
-            try {
-                $newValue = $fn($this->valueOrError);
-            } catch (TypeError $e) {
-                return $this->fail(
-                    new LogicException(sprintf(
-                        'apply() callable type error: %s',
-                        $e->getMessage()
-                    ))
-                );
-            }
-        } catch (Throwable $e) {
-            return $this->fail($e);
-        }
-
-        // Function must return plain value (not another Result)
-        if ($newValue instanceof self) {
+            $res = $fn(...$resolved);
+        } catch (TypeError $e) {
             return $this->fail(
-                new LogicException(
-                    'apply() callable must return plain value, not a Result. Use bind() for nested results.'
-                )
+                new LogicException("apply() type error: {$e->getMessage()}")
             );
         }
 
-        // Merge writers just like in bind()
-        $mergedWriter = $this->writer->merge($fnResult->writer());
+        if ($res instanceof self) {
+            return $this->fail(
+                new LogicException("apply() expects plain value, got Result. Use bind()")
+            );
+        }
 
         return new self(
             ok: true,
-            valueOrError: $newValue,
-            env: $this->env,     // preserve env
-            writer: $mergedWriter
-        );
-    }
-
-    // ------------------------------------------------------------
-    //  applyWithEnv
-    //  Applicative version that passes Env to the function.
-    //  Takes Result<callable($value, array $env): U>
-    //  and applies it to this Result<T>
-    //  producing Result<U>.
-    //
-    //  Rules:
-    //  - If either this or the function is Err → return Err
-    //  - Function receives ($value, $envArray)
-    //  - Function must return a plain value, not a Result
-    //  - Env is passed but never changed
-    //  - Writers merge (same as bind)
-    // ------------------------------------------------------------
-    public function applyWithEnv(array $dependencies, self $fnResult): self
-    {
-        // Short-circuit on existing error
-        if ($this->isErr()) {
-            return $this;
-        }
-
-        if ($fnResult->isErr()) {
-            return $fnResult;
-        }
-
-        // Extract the callable from Result<callable>
-        $fn = $fnResult->unwrap();
-        if (!is_callable($fn)) {
-            return $this->fail(
-                new LogicException(sprintf(
-                    'applyWithEnv() expects Result<callable>, got %s',
-                    get_debug_type($fn)
-                ))
-            );
-        }
-
-        // Build env array for callback
-        $env = [];
-        foreach ($dependencies as $dependency) {
-            $service = $this->env->get($dependency);
-            if (!$service) {
-                return $this->fail(
-                    new LogicException(sprintf(
-                        'applyWithEnv() failed: missing env for dependency %s',
-                        get_debug_type($dependency)
-                    ))
-                );
-            }
-            $env[] = $service;
-        }
-
-        // Apply function($value, $env)
-        try {
-            try {
-                $newValue = $fn($this->valueOrError, ...$env);
-            } catch (TypeError $e) {
-                return $this->fail(
-                    new LogicException(sprintf(
-                        'applyWithEnv() callable type error: %s',
-                        $e->getMessage()
-                    ))
-                );
-            }
-        } catch (Throwable $e) {
-            return $this->fail($e);
-        }
-
-        // Function must NOT return a Result
-        if ($newValue instanceof self) {
-            return $this->fail(
-                new LogicException(
-                    'applyWithEnv() callable must return plain value, not a Result. Use bindWithEnv() if you need to return a Result.'
-                )
-            );
-        }
-
-        // Merge writers (applicative semantics + your design)
-        $mergedWriter = $this->writer->merge($fnResult->writer());
-
-        // Return new Result with merged writer and same env
-        return new self(
-            ok: true,
-            valueOrError: $newValue,
+            valueOrError: $res,
             env: $this->env,
-            writer: $mergedWriter
+            writer: $this->writer->merge($fnResult->writer())
         );
     }
-
 
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
     // ------------------------------------------------------------
     public function inspectOk(callable $fn): self
     {
-        if ($this->isOk()) {
-            $fn($this->valueOrError); // side-effect with ok
+        if ($this->isErr()) {
+            return $this;
         }
+
+        // resolve arguments via reflection
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            return $resolved; // early fail
+        }
+
+        $fn(...$resolved);
+
         return $this;
     }
 
     public function inspectErr(callable $fn): self
     {
-        if ($this->isErr()) {
-            $fn($this->valueOrError); // side-effect with error
+        if ($this->isOk()) {
+            return $this;
         }
+
+        // resolve arguments via reflection
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            return $resolved; // early fail
+        }
+
+        $fn(...$resolved);
+
         return $this;
     }
 
@@ -535,7 +315,22 @@ final readonly class Result implements IResult, IComposedMonad
         return $this->env;
     }
 
-    public function withEnv(object ...$dependencies): self
+    public function withEnv(IEnv $env): self
+    {
+        return new self(
+            ok: $this->ok,
+            valueOrError: $this->valueOrError,
+            env: $env,
+            writer: $this->writer,
+        );
+    }
+
+    public function withService(object $dependency): self
+    {
+        return $this->withServices($dependency);
+    }
+
+    public function withServices(object ...$dependencies): self
     {
         $env = $this->env;
         foreach ($dependencies as $dep) {
@@ -544,7 +339,7 @@ final readonly class Result implements IResult, IComposedMonad
                     error: new TypeError(sprintf('withEnv() expects objects as a dependency got %s', gettype($dep)))
                 );
             }
-            $env = $env->with($dep);
+            $env = $env->withService($dep);
         }
 
         return new self(
@@ -555,6 +350,155 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
+    public function withFactory(string $class, callable|string $factory): self
+    {
+        if (!class_exists($class)) {
+            return $this->fail(
+                error: new TypeError(sprintf(
+                    'withFactory() expects a valid class, got %s',
+                    get_debug_type($class)
+                ))
+            );
+        }
+
+        $wrappedFactory = function (Env $env) use ($factory, $class) {
+
+            // class factory (autowire constructor)
+            if (is_string($factory)) {
+                return $env->make($factory);
+            }
+
+            $ref = new ReflectionFunction($factory(...));
+            $args = [];
+
+            foreach ($ref->getParameters() as $param) {
+                $type = $param->getType();
+
+                if ($type instanceof ReflectionNamedType) {
+
+                    if (!$type->isBuiltin()) {
+                        // service dependency
+                        $args[] = $env->read($type->getName());
+                        continue;
+                    }
+
+                    // scalar parameter
+                    $name = $param->getName();
+
+                    if ($env->hasParameter($name)) {
+                        $args[] = $env->parameter($name);
+                        continue;
+                    }
+                }
+
+                if ($param->isDefaultValueAvailable()) {
+                    $args[] = $param->getDefaultValue();
+                    continue;
+                }
+
+                throw new LogicException(sprintf(
+                    'Cannot resolve parameter $%s for factory of %s',
+                    $param->getName(),
+                    $class
+                ));
+            }
+
+            return $factory(...$args);
+        };
+
+        $env = $this->env->withFactory($class, $wrappedFactory);
+
+        return new self(
+            ok: $this->ok,
+            valueOrError: $this->valueOrError,
+            env: $env,
+            writer: $this->writer,
+        );
+    }
+
+    public function withParam(string $name, mixed $value): self
+    {
+        if ($name === '') {
+            return $this->fail(
+                error: new TypeError(sprintf('withParam() expects a non-empty string as parameter name, got %s', get_debug_type($name)))
+            );
+        }
+
+        $env = $this->env->withParam($name, $value);
+
+        return new self(
+            ok: $this->ok,
+            valueOrError: $this->valueOrError,
+            env: $env,
+            writer: $this->writer,
+        );
+    }
+
+    public function withTag(string $tag, object $service): self
+    {
+        if (!is_string($tag) || $tag === '') {
+            return $this->fail(
+                error: new TypeError(sprintf('withTag() expects a non-empty string as tag, got %s', get_debug_type($tag)))
+            );
+        }
+
+        if (!is_object($service)) {
+            return $this->fail(
+                error: new TypeError(sprintf('withTag() expects an object as service, got %s', get_debug_type($service)))
+            );
+        }
+
+        $env = $this->env->withTag($tag, $service);
+
+        return new self(
+            ok: $this->ok,
+            valueOrError: $this->valueOrError,
+            env: $env,
+            writer: $this->writer,
+        );
+    }
+
+
+    public function withAlias(string $alias, string $implementation): self
+    {
+        if ($alias === '' || (!interface_exists($alias) && !class_exists($alias))) {
+            return $this->fail(
+                error: new TypeError(sprintf(
+                    'withAlias() expects a valid interface or abstract class, got %s',
+                    get_debug_type($alias)
+                ))
+            );
+        }
+
+        if (!class_exists($implementation)) {
+            return $this->fail(
+                error: new TypeError(sprintf(
+                    'withAlias() expects a valid implementation class for %s, got %s',
+                    $alias,
+                    get_debug_type($implementation)
+                ))
+            );
+        }
+
+        if (!is_subclass_of($implementation, $alias) && $implementation !== $alias) {
+            return $this->fail(
+                error: new TypeError(sprintf(
+                    'withAlias() expects %s to extend or implement %s',
+                    $implementation,
+                    $alias
+                ))
+            );
+        }
+
+        $env = $this->env->withAlias($alias, $implementation);
+
+        return new self(
+            ok: $this->ok,
+            valueOrError: $this->valueOrError,
+            env: $env,
+            writer: $this->writer,
+        );
+    }
 
     // ------------------------------------------------------------
     //  Writer (immutable)
@@ -604,5 +548,66 @@ final readonly class Result implements IResult, IComposedMonad
             $traces = $traces->add($trace);
         }
         return $traces;
+    }
+
+    private function resolveCallback(callable $fn, array $extraArgs = []): array|self
+    {
+        try {
+            if ($fn instanceof Closure) {
+                $ref = new ReflectionFunction($fn);
+            } elseif (is_array($fn)) {
+                $ref = new ReflectionMethod($fn[0], $fn[1]);
+            } elseif (is_object($fn) && method_exists($fn, '__invoke')) {
+                $ref = new ReflectionMethod($fn, '__invoke');
+            } else {
+                $ref = new ReflectionFunction($fn);
+            }
+
+            $params = $ref->getParameters();
+            $args = [];
+
+            foreach ($params as $index => $param) {
+
+                // Use extraArgs first (like current Result value)
+                if (isset($extraArgs[$index])) {
+                    $args[] = $extraArgs[$index];
+                    continue;
+                }
+
+                $type = $param->getType();
+
+                if (!$type instanceof \ReflectionNamedType || $type->isBuiltin()) {
+                    return $this->fail(
+                        error: new \LogicException(
+                            "Cannot resolve parameter \${$param->getName()} — missing class/interface type"
+                        )
+                    );
+                }
+
+                $dep = $type->getName();
+                if (!$this->env->has($dep)) {
+
+                    // allow optional service (?Service)
+                    if ($type->allowsNull()) {
+                        $args[] = null;
+                        continue;
+                    }
+
+                    return $this->fail(
+                        error: new \LogicException(
+                            "Dependency $dep for parameter \${$param->getName()} is not registered in Env"
+                        )
+                    );
+                }
+
+                $service = $this->env->get($dep);
+                $args[] = $service;
+            }
+
+            return $args;
+
+        } catch (\Throwable $e) {
+            return $this->fail($e);
+        }
     }
 }
