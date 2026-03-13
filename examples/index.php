@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Gertvdb\Monad\Result;
+use Gertvdb\Monad\Option;use Gertvdb\Monad\Result;
 use Gertvdb\Monad\Trace\TraceCommon;
 use Symfony\Component\HttpFoundation\Request;
 use function Gertvdb\Monad\alias;
@@ -78,7 +78,7 @@ final class ExampleBindWithEnv
     public function __invoke(Result $result): Result
     {
         return $result->bind(
-            function (string $string, Capitalize $capitalize, Serialize $serialize) use ($result) {
+            function (string $string, Capitalize $capitalize, Database $db, Serialize $serialize, ?Missing $missing) use ($result) {
                 $string = $capitalize->doIt($string) ?? '';
 
                 try {
@@ -159,7 +159,8 @@ frankenphp_handle_request(static function () {
     header('Content-Type: text/html; charset=utf-8');
 
     $request = Request::createFromGlobals();
-    $tenant = $request->query->get('tenant') ?? 'default';
+    $rawTenant = $request->query->get('tenant');
+    $tenant = $rawTenant ? Option::some($rawTenant) : Option::none();
 
     $capitalize = new Capitalize();
     $lowercase = new LowerCase();
@@ -167,7 +168,7 @@ frankenphp_handle_request(static function () {
     /** @var Result $result */
     $result = pipe(
         Result::ok('Hello from FrankenPHP worker'),
-        static fn(Result $r) => param($r, 'tenant', $tenant),
+        static fn(Result $r) => param($r, 'tenant', $tenant->unwrapOr('default')),
         static fn(Result $r) => alias($r, LoggerInterface::class, NullLogger::class),
         static fn(Result $r) => factory($r, Database::class, fn(string $tenant, LoggerInterface $logger) => new Database($tenant, $logger)),
         static fn(Result $r) => services($r, $capitalize, $lowercase),

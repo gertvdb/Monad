@@ -28,6 +28,8 @@ final class Env implements IEnv
     /** reflection cache */
     private static array $constructorCache = [];
 
+    private array $resolving = [];
+
     public function __construct(
         array $items = [],
         array $factories = [],
@@ -93,14 +95,14 @@ final class Env implements IEnv
     /**
      * Parameter registration
      */
-    public function withParam(string $name, mixed $value): self
+    public function withParam(string $name, string|int|float|bool|array $value): self
     {
         $clone = clone $this;
         $clone->parameters[$name] = $value;
         return $clone;
     }
 
-    public function parameter(string $name): mixed
+    public function parameter(string $name): string|int|float|bool|array
     {
         if (!array_key_exists($name, $this->parameters)) {
             throw new LogicException("Missing parameter: $name");
@@ -123,34 +125,57 @@ final class Env implements IEnv
             return $this->items[$class];
         }
 
-        if (isset($this->factories[$class])) {
-            $service = ($this->factories[$class])($this);
-
-            $clone = clone $this;
-            $clone->items[$class] = $service;
-
-            return $service;
+        if (isset($this->resolving[$class])) {
+            throw new LogicException("Circular dependency detected: $class");
         }
 
-        if (isset($this->bindings[$class])) {
-            $service = $this->make($this->bindings[$class]);
+        $this->resolving[$class] = true;
 
-            $clone = clone $this;
-            $clone->items[$class] = $service;
+        try {
 
-            return $service;
+            if (isset($this->factories[$class])) {
+                $service = ($this->factories[$class])($this);
+
+                if (!$service instanceof $class) {
+                    throw new LogicException("Factory for $class did not return $class");
+                }
+
+                return $this->items[$class] = $service;
+            }
+
+            if (isset($this->bindings[$class])) {
+
+                $impl = $this->bindings[$class];
+
+                if (!class_exists($impl)) {
+                    throw new LogicException("Binding for $class points to invalid class $impl");
+                }
+
+                $service = $this->make($impl);
+
+                if (!$service instanceof $class) {
+                    throw new LogicException("$impl must implement $class");
+                }
+
+                return $this->items[$class] = $service;
+            }
+
+            if (class_exists($class)) {
+
+                $ref = new ReflectionClass($class);
+
+                if (!$ref->isInstantiable()) {
+                    throw new LogicException("Class $class is not instantiable");
+                }
+
+                return $this->items[$class] = $this->make($class);
+            }
+
+            throw new LogicException("Missing required context: $class");
+
+        } finally {
+            unset($this->resolving[$class]);
         }
-
-        if (class_exists($class)) {
-            $service = $this->make($class);
-
-            $clone = clone $this;
-            $clone->items[$class] = $service;
-
-            return $service;
-        }
-
-        throw new LogicException("Missing required context: $class");
     }
 
     /**

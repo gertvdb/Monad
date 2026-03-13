@@ -40,7 +40,7 @@ function factory(Result $result, string $class, callable|string $factory): Resul
  *
  * Useful for passing config values or constants into downstream factories.
  */
-function param(Result $result, string $key, mixed $value): Result
+function param(Result $result, string $key, string|int|float|bool|array $value): Result
 {
     return $result->withParam($key, $value);
 }

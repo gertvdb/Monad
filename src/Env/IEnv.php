@@ -48,7 +48,17 @@ interface IEnv
      * $env = $env->withParam('host', 'localhost');
      * ```
      */
-    public function withParam(string $name, mixed $value): self;
+    public function withParam(string $name, string|int|float|bool|array $value): self;
+
+    /**
+     * Return a parameter
+     */
+    public function parameter(string $name): string|int|float|bool|array;
+
+    /**
+     * Check if a param exists
+     */
+    public function hasParameter(string $name): bool;
 
     /**
      * Return a new Env with a tagged service

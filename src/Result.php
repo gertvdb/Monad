@@ -15,7 +15,8 @@ use Gertvdb\Monad\Writer\IWriter;
 use Gertvdb\Monad\Writer\Writer;
 use LogicException;
 use ReflectionFunction;
-use ReflectionMethod;use ReflectionNamedType;
+use ReflectionMethod;
+use ReflectionNamedType;
 use Stringable;
 use Throwable;
 use TypeError;
@@ -373,18 +374,49 @@ final readonly class Result implements IResult, IComposedMonad
 
             foreach ($ref->getParameters() as $param) {
                 $type = $param->getType();
+                $name = $param->getName();
 
                 if ($type instanceof ReflectionNamedType) {
+                    $typeName = $type->getName();
 
                     if (!$type->isBuiltin()) {
-                        // service dependency
-                        $args[] = $env->read($type->getName());
-                        continue;
+                        // Try parameter by name first (can be object)
+                        if ($env->hasParameter($name)) {
+                            $val = $env->parameter($name);
+
+                            if ($val === null) {
+                                if ($type->allowsNull()) {
+                                    $args[] = null;
+                                    continue;
+                                }
+                                // fall through to service resolution to possibly throw a clearer error
+                            } elseif (is_object($val) && is_a($val, $typeName)) {
+                                $args[] = $val;
+                                continue;
+                            }
+                        }
+
+                        // Resolve from services/bindings/factories
+                        $service = $env->get($typeName);
+                        if ($service !== null) {
+                            $args[] = $service;
+                            continue;
+                        }
+
+                        if ($type->allowsNull()) {
+                            $args[] = null;
+                            continue;
+                        }
+
+                        throw new LogicException(sprintf(
+                            'Cannot resolve parameter $%s (%s) for factory of %s',
+                            $name,
+                            $typeName,
+                            $class
+                        ));
                     }
 
-                    // scalar parameter
-                    $name = $param->getName();
-
+                    // scalar/builtin parameter by name
                     if ($env->hasParameter($name)) {
                         $args[] = $env->parameter($name);
                         continue;
@@ -398,7 +430,7 @@ final readonly class Result implements IResult, IComposedMonad
 
                 throw new LogicException(sprintf(
                     'Cannot resolve parameter $%s for factory of %s',
-                    $param->getName(),
+                    $name,
                     $class
                 ));
             }
@@ -416,7 +448,7 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public function withParam(string $name, mixed $value): self
+    public function withParam(string $name, string|int|float|bool|array $value): self
     {
         if ($name === '') {
             return $this->fail(
@@ -601,8 +633,20 @@ final readonly class Result implements IResult, IComposedMonad
                 }
 
                 $service = $this->env->get($dep);
+
+                // If the environment claims to have the dependency but returns null,
+                // treat it as missing unless the parameter explicitly allows null.
+                if ($service === null && !$type->allowsNull()) {
+                    return $this->fail(
+                        error: new \LogicException(
+                            "Dependency $dep for parameter \${$param->getName()} resolved to null in Env, but the parameter is not nullable"
+                        )
+                    );
+                }
+
                 $args[] = $service;
             }
+
 
             return $args;
 

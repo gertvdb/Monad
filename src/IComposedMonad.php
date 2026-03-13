@@ -111,7 +111,7 @@ interface IComposedMonad extends IMonad
      * $env = $env->withParam('host', 'localhost');
      * ```
      */
-    public function withParam(string $name, mixed $value): self;
+    public function withParam(string $name, string|int|float|bool|array $value): self;
 
     /**
      * Return a new Env with a tagged service
