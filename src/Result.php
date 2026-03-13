@@ -118,7 +118,7 @@ final readonly class Result implements IResult, IComposedMonad
 
         return new self(
             ok: $res->isOk(),
-            valueOrError: $res->isOk() ? $res->unwrap() : $res->unwrapErr(),
+            valueOrError: $res->isOk() ? $res->value() : $res->unwrapErr(),
             env: $this->env->merge($res->env()),
             writer: $this->writer->merge($res->writer())
         );
@@ -197,7 +197,7 @@ final readonly class Result implements IResult, IComposedMonad
         return new self(
             ok: true,
             valueOrError: $res,
-            env: $this->env,
+            env: $this->env->merge($fnResult->env()),
             writer: $this->writer->merge($fnResult->writer())
         );
     }
@@ -321,7 +321,7 @@ final readonly class Result implements IResult, IComposedMonad
         return new self(
             ok: $this->ok,
             valueOrError: $this->valueOrError,
-            env: $env,
+            env: $this->env->merge($env),
             writer: $this->writer,
         );
     }
