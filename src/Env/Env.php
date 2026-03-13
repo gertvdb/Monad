@@ -291,6 +291,31 @@ final class Env implements IEnv
      */
     public function merge(IEnv $other): self
     {
+        // If we are merging with the same Env implementation, we can deeply merge
+        // all internal maps to preserve factories, bindings, tags, and parameters.
+        if ($other instanceof self) {
+            // Right-biased for scalar-keyed maps: values from $other override $this
+            $items = array_merge($this->items, $other->items);
+            $factories = array_merge($this->factories, $other->factories);
+            $bindings = array_merge($this->bindings, $other->bindings);
+            $parameters = array_merge($this->parameters, $other->parameters);
+
+            // Tags: merge lists per tag (concatenate)
+            $tags = $this->tags;
+            foreach ($other->tags as $tag => $services) {
+                $tags[$tag] = array_merge($tags[$tag] ?? [], $services);
+            }
+
+            return new self(
+                $items,
+                $factories,
+                $bindings,
+                $tags,
+                $parameters
+            );
+        }
+
+        // Fallback for unknown IEnv implementations: we can only merge instantiated items.
         return new self(
             array_merge($this->items, $other->all()),
             $this->factories,

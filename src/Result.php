@@ -384,13 +384,7 @@ final readonly class Result implements IResult, IComposedMonad
                         if ($env->hasParameter($name)) {
                             $val = $env->parameter($name);
 
-                            if ($val === null) {
-                                if ($type->allowsNull()) {
-                                    $args[] = null;
-                                    continue;
-                                }
-                                // fall through to service resolution to possibly throw a clearer error
-                            } elseif (is_object($val) && is_a($val, $typeName)) {
+                            if (is_a($val, $typeName)) {
                                 $args[] = $val;
                                 continue;
                             }
