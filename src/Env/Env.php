@@ -151,12 +151,28 @@ final class Env implements IEnv
                     throw new LogicException("Binding for $class points to invalid class $impl");
                 }
 
-                $service = $this->make($impl);
+                // Reuse an existing implementation instance if it's already registered
+                if (isset($this->items[$impl])) {
+                    $service = $this->items[$impl];
+                } elseif (isset($this->factories[$impl])) {
+                    // Allow factories registered for the implementation to be used when resolving the alias
+                    $service = ($this->factories[$impl])($this);
+                    if (!$service instanceof $impl) {
+                        throw new LogicException("Factory for $impl did not return $impl");
+                    }
+                    // Cache under implementation
+                    $this->items[$impl] = $service;
+                } else {
+                    $service = $this->make($impl);
+                    // Cache under implementation
+                    $this->items[$impl] = $service;
+                }
 
                 if (!$service instanceof $class) {
                     throw new LogicException("$impl must implement $class");
                 }
 
+                // Cache under the alias as the same instance
                 return $this->items[$class] = $service;
             }
 
