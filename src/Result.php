@@ -592,57 +592,29 @@ final readonly class Result implements IResult, IComposedMonad
         return $r;
     }
 
-    public function when(callable $condition, callable ...$steps): self
-    {
-        // If the Result is already an error, do nothing
+    public function branch(
+        callable $condition,
+        array $onTrue = [],
+        array $onFalse = [],
+    ): self {
         if ($this->isErr()) {
             return $this;
         }
 
-        // Resolve dependencies for the condition like bind()/map()
         $resolved = $this->resolveCallback($condition, [$this->valueOrError]);
         if ($resolved instanceof self) {
-            return $resolved; // early fail (missing dep, etc.)
+            return $resolved;
         }
 
         try {
-            $shouldRun = (bool) ($condition)(...$resolved);
+            $result = (bool) ($condition)(...$resolved);
         } catch (TypeError $e) {
-            return $this->fail(new LogicException("when() type error: {$e->getMessage()}"));
+            return $this->fail(new LogicException("branch() type error: {$e->getMessage()}"));
         }
 
-        if (!$shouldRun) {
-            return $this;
-        }
-
-        return $this->pipe(...$steps);
-    }
-
-    public function unless(callable $condition, callable ...$steps): self
-    {
-        // If the Result is already an error, do nothing
-        if ($this->isErr()) {
-            return $this;
-        }
-
-        // Resolve dependencies for the condition like bind()/map()
-        $resolved = $this->resolveCallback($condition, [$this->valueOrError]);
-        if ($resolved instanceof self) {
-            return $resolved; // early fail (missing dep, etc.)
-        }
-
-        try {
-            $shouldSkip = (bool) ($condition)(...$resolved);
-        } catch (TypeError $e) {
-            return $this->fail(new LogicException("unless() type error: {$e->getMessage()}"));
-        }
-
-        // Skip if condition returns true; otherwise run the steps
-        if ($shouldSkip) {
-            return $this;
-        }
-
-        return $this->pipe(...$steps);
+        return $result
+            ? $this->pipe(...$onTrue)
+            : $this->pipe(...$onFalse);
     }
 
     private function resolveCallback(callable $fn, array $extraArgs = []): array|self
