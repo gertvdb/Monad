@@ -245,9 +245,23 @@ final readonly class Result implements IResult, IComposedMonad
     // ------------------------------------------------------------
     public function fold(callable $onOk, callable $onErr): mixed
     {
-        return $this->isOk()
-            ? $onOk($this->valueOrError, $this->env, $this->writer)
-            : $onErr($this->valueOrError, $this->env, $this->writer);
+        $fn = $this->isOk() ? $onOk : $onErr;
+
+        // Seed first arg with current value or error; resolve remaining via Env
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            // Resolution failed (missing dep, wrong types, etc.). Throw the underlying error
+            // because fold reduces to a plain value and cannot carry a Result context.
+            return $fn($resolved->unwrapErr());
+        }
+
+        try {
+            $res = $fn(...$resolved);
+        } catch (TypeError $e) {
+            return $fn(new LogicException("fold() type error: {$e->getMessage()}"));
+        }
+
+        return $res;
     }
 
     /**
