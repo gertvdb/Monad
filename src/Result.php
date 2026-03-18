@@ -201,19 +201,7 @@ final readonly class Result implements IResult, IComposedMonad
             writer: $this->writer->merge($fnResult->writer())
         );
     }
-
-
-    // ------------------------------------------------------------
-    //  Side-effect that preserves the upstream Ok value on success.
-    //  Propagates Err and merges Env/Writer from the side-effect.
-    // ------------------------------------------------------------
-    public function flatTap(callable $fn): self
-    {
-        return $this->bind(function ($value) use ($fn) {
-            return $fn($value)->map(fn () => $value);
-        });
-    }
-
+    
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
     // ------------------------------------------------------------
