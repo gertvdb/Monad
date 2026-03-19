@@ -69,7 +69,7 @@ final readonly class Result implements IResult, IComposedMonad
             writer: Writer::empty(),
         );
     }
-
+    
     // ------------------------------------------------------------
     //  Basic state
     // ------------------------------------------------------------
@@ -162,23 +162,51 @@ final readonly class Result implements IResult, IComposedMonad
     }
 
     // Helpers
-    public function mapTry(
+    public function try(
         callable $fn,
-        ?callable $mapError = null
+        string|Stringable|Throwable|callable|null $mapError = null
     ): self
     {
-        return $this->bind(function ($v) use ($fn, $mapError) {
-            try {
-                return self::ok($fn($v));
-            } catch (Throwable $e) {
-                return self::err($mapError ? $mapError($e) : $e);
+        if ($this->isErr()) {
+            return $this;
+        }
+
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            return $resolved; // early fail from dependency resolution
+        }
+
+        try {
+            $res = $fn(...$resolved);
+        } catch (Throwable $e) {
+            $mapped = $this->normalizeError($mapError, $e);
+            if ($mapped instanceof self) {
+                return $mapped;
             }
-        });
+            return $this->fail($mapped);
+        }
+
+        if ($res instanceof self) {
+            return $this->fail(
+                error: new LogicException(
+                    "mapTry() expected plain value, got Result. Use bind() instead."
+                )
+            );
+        }
+
+        return new self(
+            ok: true,
+            valueOrError: $res,
+            env: $this->env,
+            writer: $this->writer
+        );
     }
 
+    // Inspired by crell/fp (typeIs)
+    // https://github.com/Crell/fp/blob/master/src/object.php
     public function ofType(
         string $type,
-        ?callable $mapError = null
+        string|Stringable|Throwable|callable|null $mapError = null
     ): self {
         return $this->bind(function ($value) use ($type, $mapError) {
 
@@ -193,10 +221,111 @@ final readonly class Result implements IResult, IComposedMonad
 
             $error = new TypeError("Expected instance of {$type}");
 
-            return self::err(
-                $mapError ? $mapError($error) : $error
-            );
+            // Map the error using shared helper (Env-aware for callables)
+            $mapped = $this->normalizeError($mapError, $error);
+            if ($mapped instanceof self) {
+                return $mapped; // early fail from dependency resolution
+            }
+
+            return self::err($mapped);
         });
+    }
+
+    // Inspired by crell/fp (prop)
+    // https://github.com/Crell/fp/blob/master/src/object.php
+    public function prop(
+        string $name,
+        string|Stringable|Throwable|callable|null $mapError = null
+    ): self {
+        if ($this->isErr()) {
+            return $this;
+        }
+
+        $value = $this->valueOrError;
+
+        try {
+            if (!is_object($value)) {
+                throw new TypeError(sprintf('prop() expects object value, got %s', get_debug_type($value)));
+            }
+
+            if (!property_exists($value, $name) && !method_exists($value, '__get')) {
+                throw new TypeError(sprintf('Property %s::%s does not exist', $value::class, $name));
+            }
+
+            $res = $value->$name; // allow magic __get to run
+        } catch (Throwable $e) {
+            $mapped = $this->normalizeError($mapError, $e);
+            if ($mapped instanceof self) {
+                return $mapped; // propagate early failure from env resolution
+            }
+            return $this->fail($mapped);
+        }
+
+        if ($res instanceof self) {
+            return $this->fail(new LogicException(
+                'prop() expected plain value, got Result.'
+            ));
+        }
+
+        return new self(
+            ok: true,
+            valueOrError: $res,
+            env: $this->env,
+            writer: $this->writer
+        );
+    }
+
+    // Inspired by crell/fp (method)
+    // https://github.com/Crell/fp/blob/master/src/object.php
+    public function method(
+        string $name,
+        array $args = [],
+        string|Stringable|Throwable|callable|null $mapError = null
+    ): self {
+        if ($this->isErr()) {
+            return $this;
+        }
+
+        $obj = $this->valueOrError;
+
+        // Prepare callable for instance method
+        try {
+            if (!is_object($obj)) {
+                throw new TypeError(sprintf('method() expects object value, got %s', get_debug_type($obj)));
+            }
+            if (!is_callable([$obj, $name])) {
+                throw new TypeError(sprintf('Method %s::%s is not callable or does not exist', $obj::class, $name));
+            }
+
+            $callable = [$obj, $name];
+
+            // Resolve arguments via Env (like map/bind/mapTry)
+            $resolved = $this->resolveCallback($callable, $args);
+            if ($resolved instanceof self) {
+                return $resolved; // early fail from dependency resolution
+            }
+
+            $res = ($callable)(...$resolved);
+        } catch (Throwable $e) {
+            $mapped = $this->normalizeError($mapError, $e);
+            if ($mapped instanceof self) {
+                return $mapped;
+            }
+            return $this->fail($mapped);
+        }
+
+        if ($res instanceof self) {
+            return $this->fail(new LogicException(
+                'method() expected plain value, got Result.'
+            ));
+        }
+
+        return new self(
+            ok: true,
+            valueOrError: $res,
+            env: $this->env,
+            writer: $this->writer
+        );
     }
 
     // ------------------------------------------------------------
@@ -237,7 +366,7 @@ final readonly class Result implements IResult, IComposedMonad
             writer: $this->writer
         );
     }
-    
+
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
     // ------------------------------------------------------------
@@ -612,11 +741,8 @@ final readonly class Result implements IResult, IComposedMonad
         return $traces;
     }
 
-    /**
-     * Apply a sequence of functions to this Result.
-     *
-     * Each function must take a Result and return a Result.
-     */
+    // Inspired by crell/fp
+    // https://github.com/Crell/fp/blob/master/src/composition.php
     public function pipe(callable ...$steps): self
     {
         $r = $this;
@@ -625,6 +751,7 @@ final readonly class Result implements IResult, IComposedMonad
         }
         return $r;
     }
+
 
     public function ifThenElse(
         callable $condition,
@@ -649,6 +776,37 @@ final readonly class Result implements IResult, IComposedMonad
         return $result
             ? $this->pipe(...$then)
             : $this->pipe(...$else);
+    }
+
+
+    private function normalizeError(string|Stringable|Throwable|callable|null $mapError, Throwable $base): Throwable|self
+    {
+        if ($mapError === null) {
+            return $base;
+        }
+
+        if (is_callable($mapError)) {
+            $resolved = $this->resolveCallback($mapError, [$base]);
+            if ($resolved instanceof self) {
+                return $resolved; // propagate resolution failure
+            }
+            try {
+                $mapped = $mapError(...$resolved);
+            } catch (Throwable $e) {
+                $mapped = $e; // if mapping throws, use thrown exception
+            }
+            if (!$mapped instanceof Throwable) {
+                $mapped = new Exception((string)$mapped);
+            }
+            return $mapped;
+        }
+
+        if ($mapError instanceof Throwable) {
+            return $mapError;
+        }
+
+        // string or Stringable
+        return new Exception((string)$mapError);
     }
 
     private function resolveCallback(callable $fn, array $extraArgs = []): array|self
