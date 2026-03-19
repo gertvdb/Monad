@@ -70,7 +70,7 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public static function maybe(
+    public static function ofNullable(
         mixed $value,
         string|Stringable|Throwable $error = 'Value is null'
     ): self
@@ -80,7 +80,7 @@ final readonly class Result implements IResult, IComposedMonad
             : self::ok($value);
     }
 
-    public static function maybeType(
+    public static function ofType(
         mixed $value,
         string $type,
         string|Stringable|Throwable $error = 'Value did not match type'
