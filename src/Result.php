@@ -69,7 +69,7 @@ final readonly class Result implements IResult, IComposedMonad
             writer: Writer::empty(),
         );
     }
-    
+
     // ------------------------------------------------------------
     //  Basic state
     // ------------------------------------------------------------
@@ -130,8 +130,13 @@ final readonly class Result implements IResult, IComposedMonad
             return $this; // short-circuit if already error
         }
 
+        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
+        if ($resolved instanceof self) {
+            return $resolved; // early fail
+        }
+
         try {
-            $inner = $fn($this); // call failable side-effect with current Result
+            $inner = $fn(...$resolved); // call failable side-effect with current Result
         } catch (Throwable $e) {
             return $this->fail($e);
         }
