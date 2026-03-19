@@ -70,39 +70,6 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public static function ofNullable(
-        mixed $value,
-        string|Stringable|Throwable $error = 'Value is null'
-    ): self
-    {
-        return is_null($value)
-            ? self::err($error)
-            : self::ok($value);
-    }
-
-    public static function ofType(
-        mixed $value,
-        string $type,
-        string|Stringable|Throwable $error = 'Value did not match type'
-    ): self {
-        if ($value === null) {
-            return self::err($error);
-        }
-
-        $matches = (typeIs($type))($value);
-        return $matches ? self::ok($value) : self::err($error);
-    }
-
-    public static function tryCatch(callable $fn): self
-    {
-        try {
-            $value = $fn();
-            return self::ok($value);
-        } catch (\Throwable $e) {
-            return self::err($e);
-        }
-    }
-
     // ------------------------------------------------------------
     //  Basic state
     // ------------------------------------------------------------
@@ -157,33 +124,6 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public function bindError(callable $fn): self
-    {
-        if ($this->isOk()) {
-            return $this; // success: do nothing
-        }
-
-        try {
-            $res = $fn($this->valueOrError); // apply callback to the error
-        } catch (Throwable $e) {
-            return $this->fail($e); // if callback throws, fail with that
-        }
-
-        if (!($res instanceof self)) {
-            return $this->fail(new LogicException(
-                'bindError expects callback to return a Result'
-            ));
-        }
-
-        // Preserve Env and merge Writer
-        return new self(
-            ok: $res->isOk(),
-            valueOrError: $res->isOk() ? $res->value() : $res->unwrapErr(),
-            env: $this->env->merge($res->env()),
-            writer: $this->writer->merge($res->writer())
-        );
-    }
-
     public function bindFirst(callable $fn): self
     {
         if ($this->isErr()) {
@@ -221,14 +161,41 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public function bindTryCatch(callable $fn): self
+    // Helpers
+    public function mapTry(
+        callable $fn,
+        ?callable $mapError = null
+    ): self
     {
-        return $this->bind(function ($v) use ($fn) {
+        return $this->bind(function ($v) use ($fn, $mapError) {
             try {
-                return $fn($v);                // may throw
+                return self::ok($fn($v));
             } catch (Throwable $e) {
-                return Result::err($e);
+                return self::err($mapError ? $mapError($e) : $e);
             }
+        });
+    }
+
+    public function ofType(
+        string $type,
+        ?callable $mapError = null
+    ): self {
+        return $this->bind(function ($value) use ($type, $mapError) {
+
+            $ok = match (true) {
+                class_exists($type), interface_exists($type) => $value instanceof $type,
+                default => get_debug_type($value) === $type,
+            };
+
+            if ($ok) {
+                return self::ok($value);
+            }
+
+            $error = new TypeError("Expected instance of {$type}");
+
+            return self::err(
+                $mapError ? $mapError($error) : $error
+            );
         });
     }
 
@@ -270,34 +237,7 @@ final readonly class Result implements IResult, IComposedMonad
             writer: $this->writer
         );
     }
-
-    public function mapErr(callable $fn): self
-    {
-        if ($this->isOk()) {
-            return $this; // success: nothing to do
-        }
-
-        try {
-            $newError = $fn($this->valueOrError);
-        } catch (Throwable $e) {
-            // if mapping throws, wrap it as the new error
-            return $this->fail($e);
-        }
-
-        if (!$newError instanceof Throwable) {
-            return $this->fail(new LogicException(
-                'mapError callback must return a Throwable'
-            ));
-        }
-
-        return new self(
-            ok: false,
-            valueOrError: $newError,
-            env: $this->env,
-            writer: $this->writer
-        );
-    }
-
+    
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
     // ------------------------------------------------------------
