@@ -70,6 +70,39 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
+    public static function maybe(
+        mixed $value,
+        string|Stringable|Throwable $error = 'Value is null'
+    ): self
+    {
+        return is_null($value)
+            ? self::err($error)
+            : self::ok($value);
+    }
+
+    public static function maybeType(
+        mixed $value,
+        string $type,
+        string|Stringable|Throwable $error = 'Value did not match type'
+    ): self {
+        if ($value === null) {
+            return self::err($error);
+        }
+
+        $matches = (typeIs($type))($value);
+        return $matches ? self::ok($value) : self::err($error);
+    }
+
+    public static function tryCatch(callable $fn): self
+    {
+        try {
+            $value = $fn();
+            return self::ok($value);
+        } catch (\Throwable $e) {
+            return self::err($e);
+        }
+    }
+
     // ------------------------------------------------------------
     //  Basic state
     // ------------------------------------------------------------
@@ -124,6 +157,54 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
+    public function bindFirst(callable $fn): self
+    {
+        if ($this->isErr()) {
+            return $this; // short-circuit if already error
+        }
+
+        try {
+            $inner = $fn($this); // call failable side-effect with current Result
+        } catch (Throwable $e) {
+            return $this->fail($e);
+        }
+
+        if (!($inner instanceof self)) {
+            return $this->fail(new LogicException(
+                'bindFirst() expects callback to return a Result.'
+            ));
+        }
+
+        // propagate failure if inner failed
+        if ($inner->isErr()) {
+            return new self(
+                ok: false,
+                valueOrError: $inner->unwrapErr(),
+                env: $this->env,
+                writer: $this->writer->merge($inner->writer())
+            );
+        }
+
+        // success: keep original value, merge writer
+        return new self(
+            ok: true,
+            valueOrError: $this->valueOrError, // preserve original
+            env: $this->env,
+            writer: $this->writer->merge($inner->writer())
+        );
+    }
+
+    public function tryBind(callable $fn): self
+    {
+        return $this->bind(function ($v) use ($fn) {
+            try {
+                return $fn($v);                // may throw
+            } catch (Throwable $e) {
+                return Result::err($e);
+            }
+        });
+    }
+
     // ------------------------------------------------------------
     //  map
     //  Needs to return the modified value inside the bind.
@@ -163,45 +244,6 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    // ------------------------------------------------------------
-    //  apply |
-    // Takes a Result<callable> and applies it to this Result<T>
-    // ------------------------------------------------------------
-    public function apply(self $fnResult): self
-    {
-        if ($this->isErr()) return $this;
-        if ($fnResult->isErr()) return $fnResult;
-
-        $fn = $fnResult->unwrap();
-        if (!is_callable($fn)) {
-            return $this->fail(new LogicException("apply() expects Result<callable>"));
-        }
-
-        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
-        if ($resolved instanceof self) return $resolved;
-
-        try {
-            $res = $fn(...$resolved);
-        } catch (TypeError $e) {
-            return $this->fail(
-                new LogicException("apply() type error: {$e->getMessage()}")
-            );
-        }
-
-        if ($res instanceof self) {
-            return $this->fail(
-                new LogicException("apply() expects plain value, got Result. Use bind()")
-            );
-        }
-
-        return new self(
-            ok: true,
-            valueOrError: $res,
-            env: $this->env->merge($fnResult->env()),
-            writer: $this->writer->merge($fnResult->writer())
-        );
-    }
-    
     // ------------------------------------------------------------
     //  Side-effect without changing a pipeline
     // ------------------------------------------------------------
@@ -484,7 +526,6 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-
     public function withAlias(string $alias, object|string $implementation): self
     {
         if ($alias === '' || (!interface_exists($alias) && !class_exists($alias))) {
@@ -552,7 +593,6 @@ final readonly class Result implements IResult, IComposedMonad
         return $this->writer->get($channel);
     }
 
-
     private function fail(Throwable $error): self
     {
         return new self(
@@ -592,7 +632,7 @@ final readonly class Result implements IResult, IComposedMonad
         return $r;
     }
 
-    public function branch(
+    public function ifThenElse(
         callable $condition,
         array $onTrue = [],
         array $onFalse = [],

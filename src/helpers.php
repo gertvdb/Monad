@@ -78,3 +78,17 @@ function pipe(mixed $arg, callable ...$fns): mixed
     }
     return $arg;
 }
+
+function typeIs(string $type): \Closure
+{
+    return static fn (mixed $v) => match (true) {
+        $type === 'int'      => \is_int($v),
+        $type === 'string'   => \is_string($v),
+        $type === 'float'    => \is_float($v),
+        $type === 'bool'     => \is_bool($v),
+        $type === 'array'    => \is_array($v),
+        $type === 'resource' => \is_resource($v),
+        class_exists($type), interface_exists($type) => $v instanceof $type,
+        default => false,
+    };
+}
