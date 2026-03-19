@@ -124,48 +124,6 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public function bindFirst(callable $fn): self
-    {
-        if ($this->isErr()) {
-            return $this; // short-circuit if already error
-        }
-
-        $resolved = $this->resolveCallback($fn, [$this->valueOrError]);
-        if ($resolved instanceof self) {
-            return $resolved; // early fail
-        }
-
-        try {
-            $inner = $fn(...$resolved); // call failable side-effect with current Result
-        } catch (Throwable $e) {
-            return $this->fail($e);
-        }
-
-        if (!($inner instanceof self)) {
-            return $this->fail(new LogicException(
-                'bindFirst() expects callback to return a Result.'
-            ));
-        }
-
-        // propagate failure if inner failed
-        if ($inner->isErr()) {
-            return new self(
-                ok: false,
-                valueOrError: $inner->unwrapErr(),
-                env: $this->env,
-                writer: $this->writer->merge($inner->writer())
-            );
-        }
-
-        // success: keep original value, merge writer
-        return new self(
-            ok: true,
-            valueOrError: $this->valueOrError, // preserve original
-            env: $this->env,
-            writer: $this->writer->merge($inner->writer())
-        );
-    }
-
     // Helpers
     public function try(
         callable $fn,
@@ -757,6 +715,50 @@ final readonly class Result implements IResult, IComposedMonad
         return $r;
     }
 
+    public function pipeKeep(callable ...$steps): self
+    {
+        if ($this->isErr()) {
+            return $this;
+        }
+
+        $current = $this;
+        $writer = $this->writer;
+
+        foreach ($steps as $step) {
+            try {
+                $next = $step($current);
+            } catch (Throwable $e) {
+                return $this->fail($e);
+            }
+
+            if (!($next instanceof self)) {
+                return $this->fail(new LogicException(
+                    'pipeFirst() expects each step to return a Result.'
+                ));
+            }
+
+            // merge writer progressively
+            $writer = $writer->merge($next->writer());
+
+            if ($next->isErr()) {
+                return new self(
+                    ok: false,
+                    valueOrError: $next->unwrapErr(),
+                    env: $this->env,
+                    writer: $writer
+                );
+            }
+
+            $current = $next;
+        }
+
+        return new self(
+            ok: true,
+            valueOrError: $this->valueOrError, // keep original
+            env: $this->env,                   // keep original env
+            writer: $writer
+        );
+    }
 
     public function ifThenElse(
         callable $condition,
