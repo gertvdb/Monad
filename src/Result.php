@@ -157,6 +157,33 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
+    public function bindError(callable $fn): self
+    {
+        if ($this->isOk()) {
+            return $this; // success: do nothing
+        }
+
+        try {
+            $res = $fn($this->valueOrError); // apply callback to the error
+        } catch (Throwable $e) {
+            return $this->fail($e); // if callback throws, fail with that
+        }
+
+        if (!($res instanceof self)) {
+            return $this->fail(new LogicException(
+                'bindError expects callback to return a Result'
+            ));
+        }
+
+        // Preserve Env and merge Writer
+        return new self(
+            ok: $res->isOk(),
+            valueOrError: $res->isOk() ? $res->value() : $res->unwrapErr(),
+            env: $this->env->merge($res->env()),
+            writer: $this->writer->merge($res->writer())
+        );
+    }
+
     public function bindFirst(callable $fn): self
     {
         if ($this->isErr()) {
@@ -194,7 +221,7 @@ final readonly class Result implements IResult, IComposedMonad
         );
     }
 
-    public function tryBind(callable $fn): self
+    public function bindTryCatch(callable $fn): self
     {
         return $this->bind(function ($v) use ($fn) {
             try {
@@ -239,6 +266,33 @@ final readonly class Result implements IResult, IComposedMonad
         return new self(
             ok: true,
             valueOrError: $res,
+            env: $this->env,
+            writer: $this->writer
+        );
+    }
+
+    public function mapErr(callable $fn): self
+    {
+        if ($this->isOk()) {
+            return $this; // success: nothing to do
+        }
+
+        try {
+            $newError = $fn($this->valueOrError);
+        } catch (Throwable $e) {
+            // if mapping throws, wrap it as the new error
+            return $this->fail($e);
+        }
+
+        if (!$newError instanceof Throwable) {
+            return $this->fail(new LogicException(
+                'mapError callback must return a Throwable'
+            ));
+        }
+
+        return new self(
+            ok: false,
+            valueOrError: $newError,
             env: $this->env,
             writer: $this->writer
         );
@@ -634,8 +688,8 @@ final readonly class Result implements IResult, IComposedMonad
 
     public function ifThenElse(
         callable $condition,
-        array $onTrue = [],
-        array $onFalse = [],
+        array $then = [],
+        array $else = [],
     ): self {
         if ($this->isErr()) {
             return $this;
@@ -653,8 +707,8 @@ final readonly class Result implements IResult, IComposedMonad
         }
 
         return $result
-            ? $this->pipe(...$onTrue)
-            : $this->pipe(...$onFalse);
+            ? $this->pipe(...$then)
+            : $this->pipe(...$else);
     }
 
     private function resolveCallback(callable $fn, array $extraArgs = []): array|self
